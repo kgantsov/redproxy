@@ -7,17 +7,17 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/kgantsov/redproxy/pkg/client"
 	"github.com/kgantsov/redproxy/pkg/proto"
+	"github.com/kgantsov/redproxy/pkg/proxy"
 )
 
 type Server struct {
 	Port        int
 	TCPListener *net.TCPListener
-	redis       client.Client
+	redis       proxy.Proxy
 }
 
-func NewServer(redis client.Client, port int) *Server {
+func NewServer(redis proxy.Proxy, port int) *Server {
 	server := &Server{redis: redis, Port: port}
 
 	return server
@@ -41,7 +41,7 @@ func (srv *Server) ListenAndServe() {
 	}
 }
 
-func (srv *Server) handleClient(redis client.Client, conn io.ReadWriteCloser) {
+func (srv *Server) handleClient(redis proxy.Proxy, conn io.ReadWriteCloser) {
 	redisProto := proto.NewProto(redis, conn, conn)
 	defer conn.Close()
 

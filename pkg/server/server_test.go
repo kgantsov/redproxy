@@ -7,17 +7,17 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v9"
-	"github.com/kgantsov/redproxy/pkg/client"
+	"github.com/kgantsov/redproxy/pkg/proxy"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestServerGet(t *testing.T) {
-	client := client.NewMockClient(
+	proxy := proxy.NewMockProxy(
 		map[string]string{"k1": "v1", "k2": "2", "k3": "value", "year": "2022"},
 	)
 	port := 46379
 
-	server := NewServer(client, port)
+	server := NewServer(proxy, port)
 	go server.ListenAndServe()
 
 	redis := redis.NewClient(&redis.Options{
@@ -48,12 +48,12 @@ func TestServerGet(t *testing.T) {
 }
 
 func TestServerSet(t *testing.T) {
-	client := client.NewMockClient(
+	proxy := proxy.NewMockProxy(
 		map[string]string{"k1": "v1", "k2": "2", "k3": "value", "year": "2022"},
 	)
 	port := 56379
 
-	server := NewServer(client, port)
+	server := NewServer(proxy, port)
 	go server.ListenAndServe()
 
 	redis := redis.NewClient(&redis.Options{
@@ -80,12 +80,12 @@ func TestServerSet(t *testing.T) {
 }
 
 func TestServerDel(t *testing.T) {
-	client := client.NewMockClient(
+	proxy := proxy.NewMockProxy(
 		map[string]string{"k1": "v1", "k2": "2", "k3": "value", "year": "2022"},
 	)
 	port := 36379
 
-	server := NewServer(client, port)
+	server := NewServer(proxy, port)
 	go server.ListenAndServe()
 
 	redis := redis.NewClient(&redis.Options{

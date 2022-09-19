@@ -1,4 +1,4 @@
-package client
+package proxy
 
 import (
 	"context"
@@ -9,23 +9,23 @@ import (
 	"github.com/go-redis/redis/v9"
 )
 
-type Client interface {
+type Proxy interface {
 	Get(ctx context.Context, key string) (string, error)
 	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error
 	Del(ctx context.Context, keys ...string) int64
 }
 
-type MockClient struct {
+type MockProxy struct {
 	store map[string]string
 }
 
-func NewMockClient(store map[string]string) *MockClient {
-	r := &MockClient{store: store}
+func NewMockProxy(store map[string]string) *MockProxy {
+	r := &MockProxy{store: store}
 
 	return r
 }
 
-func (c *MockClient) Get(ctx context.Context, key string) (string, error) {
+func (c *MockProxy) Get(ctx context.Context, key string) (string, error) {
 	value, ok := c.store[key]
 
 	if !ok {
@@ -35,13 +35,13 @@ func (c *MockClient) Get(ctx context.Context, key string) (string, error) {
 	return value, nil
 }
 
-func (c *MockClient) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+func (c *MockProxy) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
 	c.store[key] = value.(string)
 
 	return nil
 }
 
-func (c *MockClient) Del(ctx context.Context, keys ...string) int64 {
+func (c *MockProxy) Del(ctx context.Context, keys ...string) int64 {
 	var res int64
 
 	for _, key := range keys {
@@ -55,23 +55,23 @@ func (c *MockClient) Del(ctx context.Context, keys ...string) int64 {
 	return res
 }
 
-type RedisClient struct {
+type RedisProxy struct {
 	redis *redis.Client
 }
 
-func NewRedisClient(host, port, password string, db int) *RedisClient {
+func NewRedisProxy(host, port, password string, db int) *RedisProxy {
 	redis := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", host, port),
 		Password: password,
 		DB:       db,
 	})
 
-	r := &RedisClient{redis: redis}
+	r := &RedisProxy{redis: redis}
 
 	return r
 }
 
-func (c *RedisClient) Get(ctx context.Context, key string) (string, error) {
+func (c *RedisProxy) Get(ctx context.Context, key string) (string, error) {
 	value, err := c.redis.Get(ctx, key).Result()
 
 	if err != nil {
@@ -81,7 +81,7 @@ func (c *RedisClient) Get(ctx context.Context, key string) (string, error) {
 	return value, nil
 }
 
-func (c *RedisClient) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+func (c *RedisProxy) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
 	err := c.redis.Set(ctx, key, value, expiration).Err()
 
 	if err != nil {
@@ -91,7 +91,7 @@ func (c *RedisClient) Set(ctx context.Context, key string, value interface{}, ex
 	return nil
 }
 
-func (c *RedisClient) Del(ctx context.Context, keys ...string) int64 {
+func (c *RedisProxy) Del(ctx context.Context, keys ...string) int64 {
 	res := c.redis.Del(ctx, keys...).Val()
 
 	return res

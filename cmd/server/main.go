@@ -8,7 +8,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/kgantsov/redproxy/pkg/client"
+	"github.com/kgantsov/redproxy/pkg/proxy"
 	server "github.com/kgantsov/redproxy/pkg/server"
 )
 
@@ -17,7 +17,7 @@ func main() {
 
 	flag.Parse()
 
-	client := client.NewRedisClient(
+	proxy := proxy.NewRedisProxy(
 		"localhost",
 		"6379",
 		"",
@@ -28,7 +28,7 @@ func main() {
 	// 	map[string]string{"k1": "v1", "k2": "2", "k3": "value", "year": "2022"},
 	// )
 
-	srv := server.NewServer(client, *redisPort)
+	srv := server.NewServer(proxy, *redisPort)
 
 	sigs := make(chan os.Signal, 1)
 

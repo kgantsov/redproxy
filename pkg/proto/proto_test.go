@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kgantsov/redproxy/pkg/client"
+	"github.com/kgantsov/redproxy/pkg/proxy"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -27,10 +27,10 @@ func TestProtoHandleRequest(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		client := client.NewMockClient(tc.store)
+		proxy := proxy.NewMockProxy(tc.store)
 
 		buf := new(bytes.Buffer)
-		redisProto := NewProto(client, strings.NewReader(tc.command), buf)
+		redisProto := NewProto(proxy, strings.NewReader(tc.command), buf)
 		redisProto.HandleRequest()
 		assert.Equal(t, buf.String(), tc.want, "they should be equal")
 	}
