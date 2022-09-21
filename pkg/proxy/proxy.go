@@ -3,7 +3,6 @@ package proxy
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/go-redis/redis/v9"
@@ -56,23 +55,23 @@ func (c *MockProxy) Del(ctx context.Context, keys ...string) int64 {
 }
 
 type RedisProxy struct {
-	redis *redis.Client
+	redises []*redis.Client
 }
 
-func NewRedisProxy(host, port, password string, db int) *RedisProxy {
-	redis := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", host, port),
-		Password: password,
-		DB:       db,
-	})
+func NewRedisProxy(redisesOptions []*redis.Options) *RedisProxy {
+	var redises []*redis.Client
+	for _, redisOptions := range redisesOptions {
+		redis := redis.NewClient(redisOptions)
+		redises = append(redises, redis)
+	}
 
-	r := &RedisProxy{redis: redis}
+	r := &RedisProxy{redises: redises}
 
 	return r
 }
 
 func (c *RedisProxy) Get(ctx context.Context, key string) (string, error) {
-	value, err := c.redis.Get(ctx, key).Result()
+	value, err := c.redises[0].Get(ctx, key).Result()
 
 	if err != nil {
 		return "", err
@@ -82,7 +81,7 @@ func (c *RedisProxy) Get(ctx context.Context, key string) (string, error) {
 }
 
 func (c *RedisProxy) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
-	err := c.redis.Set(ctx, key, value, expiration).Err()
+	err := c.redises[0].Set(ctx, key, value, expiration).Err()
 
 	if err != nil {
 		return err
@@ -92,7 +91,7 @@ func (c *RedisProxy) Set(ctx context.Context, key string, value interface{}, exp
 }
 
 func (c *RedisProxy) Del(ctx context.Context, keys ...string) int64 {
-	res := c.redis.Del(ctx, keys...).Val()
+	res := c.redises[0].Del(ctx, keys...).Val()
 
 	return res
 }

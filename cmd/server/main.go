@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/go-redis/redis/v9"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/kgantsov/redproxy/pkg/proxy"
@@ -18,10 +19,13 @@ func main() {
 	flag.Parse()
 
 	proxy := proxy.NewRedisProxy(
-		"localhost",
-		"6379",
-		"",
-		0,
+		[]*redis.Options{
+			{
+				Addr:     "localhost:6379",
+				Password: "",
+				DB:       0,
+			},
+		},
 	)
 
 	// client := client.NewMockClient(
