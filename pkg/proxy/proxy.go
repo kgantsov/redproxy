@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v9"
+	log "github.com/sirupsen/logrus"
+
+	"github.com/kgantsov/redproxy/pkg/consistent_hashing"
 )
 
 type Proxy interface {
@@ -55,23 +58,49 @@ func (c *MockProxy) Del(ctx context.Context, keys ...string) int64 {
 }
 
 type RedisProxy struct {
-	redises []*redis.Client
+	redises           map[string]*redis.Client
+	consistentHashing *consistent_hashing.ConsistentHashing
 }
 
 func NewRedisProxy(redisesOptions []*redis.Options) *RedisProxy {
-	var redises []*redis.Client
+	redises := map[string]*redis.Client{}
 	for _, redisOptions := range redisesOptions {
 		redis := redis.NewClient(redisOptions)
-		redises = append(redises, redis)
+		redises[redisOptions.Addr] = redis
 	}
 
-	r := &RedisProxy{redises: redises}
+	var nodes []string
+	for _, redisOptions := range redisesOptions {
+		nodes = append(nodes, redisOptions.Addr)
+	}
+
+	consistentHashing := consistent_hashing.NewConsistentHashing(nodes, 10)
+
+	r := &RedisProxy{redises: redises, consistentHashing: consistentHashing}
 
 	return r
 }
 
+func (c *RedisProxy) getNode(key string) *redis.Client {
+	node := c.consistentHashing.GetNode(key)
+	log.Debugf("Got a node `%s` for a key `%s`", node, key)
+	return c.redises[node]
+}
+
+func (c *RedisProxy) getNodes(keys ...string) map[string]*redis.Client {
+	keyClients := map[string]*redis.Client{}
+
+	for _, key := range keys {
+		node := c.consistentHashing.GetNode(key)
+		log.Debugf("Got a node `%s` for a key `%s`", node, key)
+		keyClients[key] = c.redises[node]
+	}
+
+	return keyClients
+}
+
 func (c *RedisProxy) Get(ctx context.Context, key string) (string, error) {
-	value, err := c.redises[0].Get(ctx, key).Result()
+	value, err := c.getNode(key).Get(ctx, key).Result()
 
 	if err != nil {
 		return "", err
@@ -81,8 +110,7 @@ func (c *RedisProxy) Get(ctx context.Context, key string) (string, error) {
 }
 
 func (c *RedisProxy) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
-	err := c.redises[0].Set(ctx, key, value, expiration).Err()
-
+	err := c.getNode(key).Set(ctx, key, value, expiration).Err()
 	if err != nil {
 		return err
 	}
@@ -91,7 +119,14 @@ func (c *RedisProxy) Set(ctx context.Context, key string, value interface{}, exp
 }
 
 func (c *RedisProxy) Del(ctx context.Context, keys ...string) int64 {
-	res := c.redises[0].Del(ctx, keys...).Val()
+	var res int64
+
+	keyClients := c.getNodes(keys...)
+
+	for _, key := range keys {
+		client := keyClients[key]
+		res += client.Del(ctx, keys...).Val()
+	}
 
 	return res
 }

@@ -14,6 +14,9 @@ import (
 )
 
 func main() {
+	level, _ := log.ParseLevel("DEBUG")
+	log.SetLevel(level)
+
 	redisPort := flag.Int("redis_port", 46379, "Redis Port")
 
 	flag.Parse()
@@ -21,16 +24,22 @@ func main() {
 	proxy := proxy.NewRedisProxy(
 		[]*redis.Options{
 			{
-				Addr:     "localhost:6379",
+				Addr:     "localhost:16379",
+				Password: "",
+				DB:       0,
+			},
+			{
+				Addr:     "localhost:26379",
+				Password: "",
+				DB:       0,
+			},
+			{
+				Addr:     "localhost:36379",
 				Password: "",
 				DB:       0,
 			},
 		},
 	)
-
-	// client := client.NewMockClient(
-	// 	map[string]string{"k1": "v1", "k2": "2", "k3": "value", "year": "2022"},
-	// )
 
 	srv := server.NewServer(proxy, *redisPort)
 
