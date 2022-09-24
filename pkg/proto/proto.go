@@ -56,7 +56,7 @@ func (p *Proto) HandleRequest() {
 
 		val, err := p.redis.Get(ctx, cmd.Args[0])
 		if err != nil {
-			p.responser.SendStr("")
+			p.responser.SendNull()
 		} else {
 			p.responser.SendStr(val)
 		}
@@ -75,6 +75,11 @@ func (p *Proto) HandleRequest() {
 
 		res := p.redis.Del(ctx, cmd.Args...)
 		p.responser.SendInt(res)
+	case "KEYS":
+		log.Infof("=====> KEYS %+v", cmd.Args)
+
+		values := p.redis.Keys(ctx, cmd.Args[0])
+		p.responser.SendArr(values)
 	// case "MGET":
 	// 	log.Infof("=====> MGET %+v", cmd.Args)
 

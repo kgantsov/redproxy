@@ -20,7 +20,7 @@ func TestServerGet(t *testing.T) {
 	server := NewServer(proxy, port)
 	go server.ListenAndServe()
 
-	redis := redis.NewClient(&redis.Options{
+	client := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("localhost:%d", port),
 		Password: "",
 		DB:       0,
@@ -35,15 +35,15 @@ func TestServerGet(t *testing.T) {
 		{key: "k2", want: "2", err: nil},
 		{key: "k3", want: "value", err: nil},
 		{key: "year", want: "2022", err: nil},
-		{key: "foo", want: "", err: nil},
+		{key: "foo", want: "", err: redis.Nil},
 	}
 
 	for _, tc := range tests {
 		var ctx = context.Background()
-		val, err := redis.Get(ctx, tc.key).Result()
+		val, err := client.Get(ctx, tc.key).Result()
 
-		assert.Equal(t, tc.err, err, "they should be equal")
-		assert.Equal(t, tc.want, val, "they should be equal")
+		assert.Equal(t, tc.err, err, fmt.Sprintf("GET %s error", tc.key))
+		assert.Equal(t, tc.want, val, fmt.Sprintf("GET %s", tc.key))
 	}
 }
 
@@ -56,7 +56,7 @@ func TestServerSet(t *testing.T) {
 	server := NewServer(proxy, port)
 	go server.ListenAndServe()
 
-	redis := redis.NewClient(&redis.Options{
+	client := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("localhost:%d", port),
 		Password: "",
 		DB:       0,
@@ -64,16 +64,16 @@ func TestServerSet(t *testing.T) {
 
 	var ctx = context.Background()
 
-	val, err := redis.Get(ctx, "new_key").Result()
+	val, err := client.Get(ctx, "new_key").Result()
 
-	assert.Equal(t, nil, err, "they should be equal")
+	assert.Equal(t, redis.Nil, err, "they should be equal")
 	assert.Equal(t, "", val, "they should be equal")
 
-	err = redis.Set(ctx, "new_key", "new value", time.Duration(0)).Err()
+	err = client.Set(ctx, "new_key", "new value", time.Duration(0)).Err()
 
 	assert.Equal(t, nil, err, "they should be equal")
 
-	val, err = redis.Get(ctx, "new_key").Result()
+	val, err = client.Get(ctx, "new_key").Result()
 
 	assert.Equal(t, nil, err, "they should be equal")
 	assert.Equal(t, "new value", val, "they should be equal")
@@ -88,7 +88,7 @@ func TestServerDel(t *testing.T) {
 	server := NewServer(proxy, port)
 	go server.ListenAndServe()
 
-	redis := redis.NewClient(&redis.Options{
+	client := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("localhost:%d", port),
 		Password: "",
 		DB:       0,
@@ -96,31 +96,31 @@ func TestServerDel(t *testing.T) {
 
 	var ctx = context.Background()
 
-	val, err := redis.Get(ctx, "k1").Result()
+	val, err := client.Get(ctx, "k1").Result()
 	assert.Equal(t, nil, err, "they should be equal")
 	assert.Equal(t, "v1", val, "they should be equal")
 
-	val, err = redis.Get(ctx, "k2").Result()
+	val, err = client.Get(ctx, "k2").Result()
 	assert.Equal(t, nil, err, "they should be equal")
 	assert.Equal(t, "2", val, "they should be equal")
 
-	val, err = redis.Get(ctx, "k3").Result()
+	val, err = client.Get(ctx, "k3").Result()
 	assert.Equal(t, nil, err, "they should be equal")
 	assert.Equal(t, "value", val, "they should be equal")
 
-	deleted := redis.Del(ctx, "k1", "k3").Val()
+	deleted := client.Del(ctx, "k1", "k3").Val()
 
 	assert.Equal(t, int64(2), deleted, "they should be equal")
 
-	val, err = redis.Get(ctx, "k1").Result()
-	assert.Equal(t, nil, err, "they should be equal")
+	val, err = client.Get(ctx, "k1").Result()
+	assert.Equal(t, redis.Nil, err, "they should be equal")
 	assert.Equal(t, "", val, "they should be equal")
 
-	val, err = redis.Get(ctx, "k2").Result()
+	val, err = client.Get(ctx, "k2").Result()
 	assert.Equal(t, nil, err, "they should be equal")
 	assert.Equal(t, "2", val, "they should be equal")
 
-	val, err = redis.Get(ctx, "k3").Result()
-	assert.Equal(t, nil, err, "they should be equal")
+	val, err = client.Get(ctx, "k3").Result()
+	assert.Equal(t, redis.Nil, err, "they should be equal")
 	assert.Equal(t, "", val, "they should be equal")
 }

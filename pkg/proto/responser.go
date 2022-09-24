@@ -31,6 +31,10 @@ func (r *Responser) SendStr(value string) {
 	r.conn.Write([]byte(fmt.Sprintf("+%s\r\n", value)))
 }
 
+func (r *Responser) SendNull() {
+	r.conn.Write([]byte("$-1\r\n"))
+}
+
 func (r *Responser) SendArr(values []string) {
 	r.conn.Write([]byte(fmt.Sprintf("*%d\r\n", len(values))))
 	for _, value := range values {

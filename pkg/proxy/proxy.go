@@ -15,6 +15,7 @@ type Proxy interface {
 	Get(ctx context.Context, key string) (string, error)
 	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error
 	Del(ctx context.Context, keys ...string) int64
+	Keys(ctx context.Context, pattern string) []string
 }
 
 type MockProxy struct {
@@ -55,6 +56,15 @@ func (c *MockProxy) Del(ctx context.Context, keys ...string) int64 {
 		}
 	}
 	return res
+}
+
+func (c *MockProxy) Keys(ctx context.Context, pattern string) []string {
+	keys := []string{}
+
+	for key, _ := range c.store {
+		keys = append(keys, key)
+	}
+	return keys
 }
 
 type RedisProxy struct {
@@ -129,4 +139,15 @@ func (c *RedisProxy) Del(ctx context.Context, keys ...string) int64 {
 	}
 
 	return res
+}
+
+func (c *RedisProxy) Keys(ctx context.Context, pattern string) []string {
+	keys := []string{}
+
+	for _, client := range c.redises {
+		serverKeys := client.Keys(ctx, pattern).Val()
+		keys = append(keys, serverKeys...)
+	}
+
+	return keys
 }

@@ -21,7 +21,7 @@ func TestProtoHandleRequest(t *testing.T) {
 		{store: store, command: "*2\r\n$3\r\nGET\r\n$2\r\nk2\r\n", want: "+2\r\n"},
 		{store: store, command: "*2\r\n$3\r\nGET\r\n$2\r\nk3\r\n", want: "+value\r\n"},
 		{store: store, command: "*2\r\n$3\r\nGET\r\n$4\r\nyear\r\n", want: "+2022\r\n"},
-		{store: store, command: "*2\r\n$3\r\nGET\r\n$3\r\nfoo\r\n", want: "+\r\n"},
+		{store: store, command: "*2\r\n$3\r\nGET\r\n$3\r\nfoo\r\n", want: "$-1\r\n"},
 		{store: store, command: "*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nbar\r\n", want: "+OK\r\n"},
 		{store: store, command: "*2\r\n$3\r\nDEL\r\n$2\r\nk1\r\n", want: ":1\r\n"},
 	}
