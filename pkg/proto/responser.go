@@ -3,6 +3,8 @@ package proto
 import (
 	"fmt"
 	"io"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Responser struct {
@@ -15,30 +17,63 @@ func NewResponser(conn io.Writer) *Responser {
 	return r
 }
 
-func (r *Responser) SendError(err error) {
-	r.conn.Write([]byte(fmt.Sprintf("-ERR %s\r\n", err)))
+func (r *Responser) SendError(val error) {
+	_, err := fmt.Fprintf(r.conn, "-ERR %s\r\n", val)
+
+	if err != nil {
+		log.Errorf("Cound not send a aresponse")
+	}
 }
 
 func (r *Responser) SendPong() {
-	r.conn.Write([]byte("+PONG\r\n"))
+	_, err := fmt.Fprintf(r.conn, "+PONG\r\n")
+	if err != nil {
+		log.Errorf("Cound not send a aresponse")
+	}
 }
 
 func (r *Responser) SendInt(value int64) {
-	r.conn.Write([]byte(fmt.Sprintf(":%d\r\n", value)))
+	_, err := fmt.Fprintf(r.conn, ":%d\r\n", value)
+
+	if err != nil {
+		log.Errorf("Cound not send a aresponse")
+	}
 }
 
 func (r *Responser) SendStr(value string) {
-	r.conn.Write([]byte(fmt.Sprintf("+%s\r\n", value)))
+	_, err := fmt.Fprintf(r.conn, "+%s\r\n", value)
+
+	if err != nil {
+		log.Errorf("Cound not send a aresponse")
+	}
 }
 
 func (r *Responser) SendNull() {
-	r.conn.Write([]byte("$-1\r\n"))
+	_, err := fmt.Fprintf(r.conn, "$-1\r\n")
+
+	if err != nil {
+		log.Errorf("Cound not send a aresponse")
+	}
 }
 
 func (r *Responser) SendArr(values []string) {
-	r.conn.Write([]byte(fmt.Sprintf("*%d\r\n", len(values))))
+	_, err := fmt.Fprintf(r.conn, "*%d\r\n", len(values))
+
+	if err != nil {
+		log.Errorf("Cound not send a aresponse")
+	}
+
 	for _, value := range values {
-		r.conn.Write([]byte(fmt.Sprintf("$%d\r\n", len(value))))
-		r.conn.Write([]byte(fmt.Sprintf("%s\r\n", value)))
+		_, err = fmt.Fprintf(r.conn, "$%d\r\n", len(value))
+
+		if err != nil {
+			log.Errorf("Cound not send a aresponse")
+		}
+
+		_, err = fmt.Fprintf(r.conn, "%s\r\n", value)
+
+		if err != nil {
+			log.Errorf("Cound not send a aresponse")
+		}
 	}
 }

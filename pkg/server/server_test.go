@@ -12,12 +12,12 @@ import (
 )
 
 func TestServerGet(t *testing.T) {
-	proxy := proxy.NewMockProxy(
+	mockProxy := proxy.NewMockProxy(
 		map[string]string{"k1": "v1", "k2": "2", "k3": "value", "year": "2022"},
 	)
 	port := 46379
 
-	server := NewServer(proxy, port)
+	server := NewServer(mockProxy, port)
 	go server.ListenAndServe()
 
 	client := redis.NewClient(&redis.Options{
@@ -27,9 +27,9 @@ func TestServerGet(t *testing.T) {
 	})
 
 	tests := []struct {
+		err  error
 		key  string
 		want string
-		err  error
 	}{
 		{key: "k1", want: "v1", err: nil},
 		{key: "k2", want: "2", err: nil},
@@ -48,12 +48,12 @@ func TestServerGet(t *testing.T) {
 }
 
 func TestServerSet(t *testing.T) {
-	proxy := proxy.NewMockProxy(
+	mockProxy := proxy.NewMockProxy(
 		map[string]string{"k1": "v1", "k2": "2", "k3": "value", "year": "2022"},
 	)
 	port := 56379
 
-	server := NewServer(proxy, port)
+	server := NewServer(mockProxy, port)
 	go server.ListenAndServe()
 
 	client := redis.NewClient(&redis.Options{
@@ -80,12 +80,12 @@ func TestServerSet(t *testing.T) {
 }
 
 func TestServerDel(t *testing.T) {
-	proxy := proxy.NewMockProxy(
+	mockProxy := proxy.NewMockProxy(
 		map[string]string{"k1": "v1", "k2": "2", "k3": "value", "year": "2022"},
 	)
 	port := 36379
 
-	server := NewServer(proxy, port)
+	server := NewServer(mockProxy, port)
 	go server.ListenAndServe()
 
 	client := redis.NewClient(&redis.Options{

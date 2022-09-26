@@ -33,7 +33,6 @@ func NewProto(redis proxy.Proxy, reader io.Reader, writer io.Writer) *Proto {
 }
 
 func (p *Proto) HandleRequest() {
-
 	var ctx = context.Background()
 
 	cmd, err := p.parser.ParseCommand()
@@ -45,6 +44,7 @@ func (p *Proto) HandleRequest() {
 		} else {
 			p.responser.SendError(err)
 		}
+
 		return
 	}
 
@@ -60,6 +60,7 @@ func (p *Proto) HandleRequest() {
 		} else {
 			p.responser.SendStr(val)
 		}
+
 		log.Infof("------> ::: %s %s", err, val)
 	case "SET":
 		log.Infof("=====> SET %+v", cmd.Args)

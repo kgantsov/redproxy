@@ -42,6 +42,7 @@ func (p *Parser) ParseCommand() (*Command, error) {
 	}
 
 	args := make([]string, 0, argc)
+
 	for i := 0; i < int(argc); i++ {
 		line, err := p.readLine()
 		if err != nil {
@@ -54,11 +55,13 @@ func (p *Parser) ParseCommand() (*Command, error) {
 
 		argLenStr := line[1:]
 		argLen, err := strconv.ParseUint(argLenStr, 10, 64)
+
 		if err != nil {
 			return nil, fmt.Errorf("rror parsing argument length %s", argLenStr)
 		}
 
 		arg := make([]byte, argLen+2)
+
 		if _, err := io.ReadFull(p.reader, arg); err != nil {
 			return nil, err
 		}
@@ -71,8 +74,10 @@ func (p *Parser) ParseCommand() (*Command, error) {
 
 func (p *Parser) readLine() (string, error) {
 	str, err := p.reader.ReadString('\n')
+
 	if err == nil {
 		return str[:len(str)-2], err
 	}
+
 	return str, err
 }

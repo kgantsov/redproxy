@@ -46,8 +46,8 @@ func TestSendPong(t *testing.T) {
 
 func TestResponserSendInt(t *testing.T) {
 	tests := []struct {
-		value int64
 		want  string
+		value int64
 	}{
 		{value: -123, want: ":-123\r\n"},
 		{value: 0, want: ":0\r\n"},
@@ -88,8 +88,8 @@ func TestResponserSendStr(t *testing.T) {
 
 func TestResponserSendArr(t *testing.T) {
 	tests := []struct {
-		value []string
 		want  string
+		value []string
 	}{
 		{value: []string{"foo"}, want: "*1\r\n$3\r\nfoo\r\n"},
 		{value: []string{""}, want: "*1\r\n$0\r\n\r\n"},

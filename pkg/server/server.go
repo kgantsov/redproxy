@@ -12,9 +12,9 @@ import (
 )
 
 type Server struct {
-	Port        int
 	TCPListener *net.TCPListener
 	redis       proxy.Proxy
+	Port        int
 }
 
 func NewServer(redis proxy.Proxy, port int) *Server {
@@ -37,6 +37,7 @@ func (srv *Server) ListenAndServe() {
 			log.Error("Fatal error: ", err.Error())
 			continue
 		}
+
 		go srv.handleClient(srv.redis, conn)
 	}
 }

@@ -8,14 +8,15 @@ import (
 )
 
 type ConsistentHashing struct {
-	nodes          []string
-	partitions     int
-	nodePartitions []string
 	nodeMap        map[string]string
+	nodes          []string
+	nodePartitions []string
+	partitions     int
 }
 
 func NewConsistentHashing(nodes []string, partitions int) *ConsistentHashing {
 	var nodePartitions []string
+
 	nodeMap := make(map[string]string)
 
 	for partition := 0; partition < partitions; partition++ {
@@ -43,6 +44,7 @@ func NewConsistentHashing(nodes []string, partitions int) *ConsistentHashing {
 func GetMD5Hash(text string) string {
 	hasher := md5.New()
 	hasher.Write([]byte(text))
+
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 

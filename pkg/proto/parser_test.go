@@ -10,8 +10,8 @@ import (
 
 func TestParserParseCommand(t *testing.T) {
 	tests := []struct {
-		command string
 		want    *Command
+		command string
 	}{
 		{command: "*2\r\n$3\r\nGET\r\n$2\r\nk1\r\n", want: &Command{Name: "GET", Args: []string{"k1"}}},
 		{command: "*2\r\n$3\r\nGET\r\n$2\r\nk2\r\n", want: &Command{Name: "GET", Args: []string{"k2"}}},

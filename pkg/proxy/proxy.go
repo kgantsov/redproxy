@@ -52,9 +52,11 @@ func (c *MockProxy) Del(ctx context.Context, keys ...string) int64 {
 
 		if ok {
 			res++
+
 			delete(c.store, key)
 		}
 	}
+
 	return res
 }
 
@@ -64,6 +66,7 @@ func (c *MockProxy) Keys(ctx context.Context, pattern string) []string {
 	for key, _ := range c.store {
 		keys = append(keys, key)
 	}
+
 	return keys
 }
 
@@ -74,12 +77,14 @@ type RedisProxy struct {
 
 func NewRedisProxy(redisesOptions []*redis.Options) *RedisProxy {
 	redises := map[string]*redis.Client{}
+
 	for _, redisOptions := range redisesOptions {
-		redis := redis.NewClient(redisOptions)
-		redises[redisOptions.Addr] = redis
+		client := redis.NewClient(redisOptions)
+		redises[redisOptions.Addr] = client
 	}
 
-	var nodes []string
+	nodes := make([]string, 0)
+
 	for _, redisOptions := range redisesOptions {
 		nodes = append(nodes, redisOptions.Addr)
 	}
@@ -94,6 +99,7 @@ func NewRedisProxy(redisesOptions []*redis.Options) *RedisProxy {
 func (c *RedisProxy) getNode(key string) *redis.Client {
 	node := c.consistentHashing.GetNode(key)
 	log.Debugf("Got a node `%s` for a key `%s`", node, key)
+
 	return c.redises[node]
 }
 
