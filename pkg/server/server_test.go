@@ -45,6 +45,8 @@ func TestServerGet(t *testing.T) {
 		assert.Equal(t, tc.err, err, fmt.Sprintf("GET %s error", tc.key))
 		assert.Equal(t, tc.want, val, fmt.Sprintf("GET %s", tc.key))
 	}
+
+	server.Stop()
 }
 
 func TestServerSet(t *testing.T) {
@@ -77,6 +79,8 @@ func TestServerSet(t *testing.T) {
 
 	assert.Equal(t, nil, err, "they should be equal")
 	assert.Equal(t, "new value", val, "they should be equal")
+
+	server.Stop()
 }
 
 func TestServerDel(t *testing.T) {
@@ -123,4 +127,5 @@ func TestServerDel(t *testing.T) {
 	val, err = client.Get(ctx, "k3").Result()
 	assert.Equal(t, redis.Nil, err, "they should be equal")
 	assert.Equal(t, "", val, "they should be equal")
+	server.Stop()
 }

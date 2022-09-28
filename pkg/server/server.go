@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 
@@ -13,33 +14,55 @@ import (
 
 type Server struct {
 	TCPListener *net.TCPListener
+	quit        chan interface{}
 	redis       proxy.Proxy
 	Port        int
+	wg          sync.WaitGroup
 }
 
 func NewServer(redis proxy.Proxy, port int) *Server {
-	server := &Server{redis: redis, Port: port}
+	server := &Server{
+		redis: redis,
+		Port:  port,
+		quit:  make(chan interface{}),
+	}
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf(":%d", server.Port))
+	checkError(err)
+	server.TCPListener, err = net.ListenTCP("tcp", tcpAddr)
+	checkError(err)
 
 	return server
 }
 
 func (srv *Server) ListenAndServe() {
-	tcpAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf(":%d", srv.Port))
-	checkError(err)
-	srv.TCPListener, err = net.ListenTCP("tcp", tcpAddr)
-	checkError(err)
-
 	log.Info("Listening on port: ", srv.Port)
+	defer srv.wg.Done()
 
 	for {
 		conn, err := srv.TCPListener.Accept()
 		if err != nil {
-			log.Error("Fatal error: ", err.Error())
-			continue
+			select {
+			case <-srv.quit:
+				return
+			default:
+				log.Error("Fatal error: ", err.Error())
+				continue
+			}
 		}
+		srv.wg.Add(1)
 
-		go srv.handleClient(srv.redis, conn)
+		go func() {
+			srv.handleClient(srv.redis, conn)
+			srv.wg.Done()
+		}()
 	}
+}
+
+func (srv *Server) Stop() {
+	close(srv.quit)
+	srv.TCPListener.Close()
+	srv.wg.Wait()
 }
 
 func (srv *Server) handleClient(redis proxy.Proxy, conn io.ReadWriteCloser) {
