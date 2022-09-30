@@ -43,7 +43,6 @@ func main() {
 	for _, redisOptions := range redisesOptions {
 		client := redis.NewClient(redisOptions)
 		redises[redisOptions.Addr] = client
-		// client.Del()
 	}
 
 	proxy := proto.NewRedisProxy(redises)
