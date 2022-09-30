@@ -1,23 +1,29 @@
-package server
+package proto
 
 import (
 	"context"
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
 	"github.com/go-redis/redis/v9"
-	"github.com/kgantsov/redproxy/pkg/proxy"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestServerGet(t *testing.T) {
-	mockProxy := proxy.NewMockProxy(
-		map[string]string{"k1": "v1", "k2": "2", "k3": "value", "year": "2022"},
-	)
 	port := 46379
 
-	server := NewServer(mockProxy, port)
+	redisClient := NewMockRedisClient(
+		map[string]string{"k1": "v1", "k2": "2", "k3": "value", "year": "2022"},
+	)
+
+	redises := map[string]RedisClient{}
+	redises["localhost:6379"] = redisClient
+
+	_proxy := NewRedisProxy(redises)
+	server := NewServer(_proxy, port)
+
 	go server.ListenAndServe()
 
 	client := redis.NewClient(&redis.Options{
@@ -50,12 +56,18 @@ func TestServerGet(t *testing.T) {
 }
 
 func TestServerSet(t *testing.T) {
-	mockProxy := proxy.NewMockProxy(
-		map[string]string{"k1": "v1", "k2": "2", "k3": "value", "year": "2022"},
-	)
 	port := 56379
 
-	server := NewServer(mockProxy, port)
+	redisClient := NewMockRedisClient(
+		map[string]string{"k1": "v1", "k2": "2", "k3": "value", "year": "2022"},
+	)
+
+	redises := map[string]RedisClient{}
+	redises["localhost:6379"] = redisClient
+
+	_proxy := NewRedisProxy(redises)
+	server := NewServer(_proxy, port)
+
 	go server.ListenAndServe()
 
 	client := redis.NewClient(&redis.Options{
@@ -84,12 +96,18 @@ func TestServerSet(t *testing.T) {
 }
 
 func TestServerDel(t *testing.T) {
-	mockProxy := proxy.NewMockProxy(
-		map[string]string{"k1": "v1", "k2": "2", "k3": "value", "year": "2022"},
-	)
 	port := 36379
 
-	server := NewServer(mockProxy, port)
+	redisClient := NewMockRedisClient(
+		map[string]string{"k1": "v1", "k2": "2", "k3": "value", "year": "2022"},
+	)
+
+	redises := map[string]RedisClient{}
+	redises["localhost:6379"] = redisClient
+
+	_proxy := NewRedisProxy(redises)
+	server := NewServer(_proxy, port)
+
 	go server.ListenAndServe()
 
 	client := redis.NewClient(&redis.Options{
@@ -127,5 +145,53 @@ func TestServerDel(t *testing.T) {
 	val, err = client.Get(ctx, "k3").Result()
 	assert.Equal(t, redis.Nil, err, "they should be equal")
 	assert.Equal(t, "", val, "they should be equal")
+	server.Stop()
+}
+
+func TestServerKeys(t *testing.T) {
+	port := 46379
+
+	redisClient := NewMockRedisClient(
+		map[string]string{"k1": "v1", "k2": "2", "k3": "value", "year": "2022"},
+	)
+
+	redises := map[string]RedisClient{}
+	redises["localhost:6379"] = redisClient
+
+	_proxy := NewRedisProxy(redises)
+	server := NewServer(_proxy, port)
+
+	go server.ListenAndServe()
+
+	client := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("localhost:%d", port),
+		Password: "",
+		DB:       0,
+	})
+
+	tests := []struct {
+		err  error
+		key  string
+		want []string
+	}{
+		{key: "k*", want: []string{"k1", "k2", "k3"}, err: nil},
+		{key: "k2", want: []string{"k2"}, err: nil},
+		{key: "*", want: []string{"k1", "k2", "k3", "year"}, err: nil},
+		{key: "year", want: []string{"year"}, err: nil},
+		{key: "foo", want: []string{}, err: nil},
+	}
+
+	for _, tc := range tests {
+		var ctx = context.Background()
+		val, err := client.Keys(ctx, tc.key).Result()
+
+		sort.Slice(val, func(i, j int) bool {
+			return val[i] < val[j]
+		})
+
+		assert.Equal(t, tc.err, err, fmt.Sprintf("GET %s error", tc.key))
+		assert.Equal(t, tc.want, val, fmt.Sprintf("GET %s", tc.key))
+	}
+
 	server.Stop()
 }

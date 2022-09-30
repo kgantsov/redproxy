@@ -1,4 +1,4 @@
-package server
+package proto
 
 import (
 	"fmt"
@@ -7,20 +7,17 @@ import (
 	"sync"
 
 	log "github.com/sirupsen/logrus"
-
-	"github.com/kgantsov/redproxy/pkg/proto"
-	"github.com/kgantsov/redproxy/pkg/proxy"
 )
 
 type Server struct {
 	TCPListener *net.TCPListener
 	quit        chan interface{}
-	redis       proxy.Proxy
+	redis       *RedisProxy
 	Port        int
 	wg          sync.WaitGroup
 }
 
-func NewServer(redis proxy.Proxy, port int) *Server {
+func NewServer(redis *RedisProxy, port int) *Server {
 	server := &Server{
 		redis: redis,
 		Port:  port,
@@ -50,10 +47,11 @@ func (srv *Server) ListenAndServe() {
 				continue
 			}
 		}
+
 		srv.wg.Add(1)
 
 		go func() {
-			srv.handleClient(srv.redis, conn)
+			srv.handleClient(conn)
 			srv.wg.Done()
 		}()
 	}
@@ -65,8 +63,8 @@ func (srv *Server) Stop() {
 	srv.wg.Wait()
 }
 
-func (srv *Server) handleClient(redis proxy.Proxy, conn io.ReadWriteCloser) {
-	redisProto := proto.NewProto(redis, conn, conn)
+func (srv *Server) handleClient(conn io.ReadWriteCloser) {
+	redisProto := NewProto(srv.redis, conn, conn)
 	defer conn.Close()
 
 	for {

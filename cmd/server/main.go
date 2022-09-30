@@ -9,8 +9,7 @@ import (
 	"github.com/go-redis/redis/v9"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/kgantsov/redproxy/pkg/proxy"
-	server "github.com/kgantsov/redproxy/pkg/server"
+	"github.com/kgantsov/redproxy/pkg/proto"
 )
 
 func main() {
@@ -21,27 +20,35 @@ func main() {
 
 	flag.Parse()
 
-	proxy := proxy.NewRedisProxy(
-		[]*redis.Options{
-			{
-				Addr:     "localhost:16379",
-				Password: "",
-				DB:       0,
-			},
-			{
-				Addr:     "localhost:26379",
-				Password: "",
-				DB:       0,
-			},
-			{
-				Addr:     "localhost:36379",
-				Password: "",
-				DB:       0,
-			},
-		},
-	)
+	redises := map[string]proto.RedisClient{}
 
-	srv := server.NewServer(proxy, *redisPort)
+	redisesOptions := []*redis.Options{
+		{
+			Addr:     "localhost:16379",
+			Password: "",
+			DB:       0,
+		},
+		{
+			Addr:     "localhost:26379",
+			Password: "",
+			DB:       0,
+		},
+		{
+			Addr:     "localhost:36379",
+			Password: "",
+			DB:       0,
+		},
+	}
+
+	for _, redisOptions := range redisesOptions {
+		client := redis.NewClient(redisOptions)
+		redises[redisOptions.Addr] = client
+		// client.Del()
+	}
+
+	proxy := proto.NewRedisProxy(redises)
+
+	srv := proto.NewServer(proxy, *redisPort)
 
 	sigs := make(chan os.Signal, 1)
 

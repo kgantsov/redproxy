@@ -7,18 +7,16 @@ import (
 	"io"
 	"time"
 
-	"github.com/kgantsov/redproxy/pkg/proxy"
-
 	log "github.com/sirupsen/logrus"
 )
 
 type Proto struct {
 	parser    *Parser
 	responser *Responser
-	redis     proxy.Proxy
+	redis     *RedisProxy
 }
 
-func NewProto(redis proxy.Proxy, reader io.Reader, writer io.Writer) *Proto {
+func NewProto(redis *RedisProxy, reader io.Reader, writer io.Writer) *Proto {
 	r := bufio.NewReader(reader)
 	parser := NewParser(r)
 	responser := NewResponser(writer)
@@ -54,7 +52,7 @@ func (p *Proto) HandleRequest() {
 	case "GET":
 		log.Infof("=====> GET %+v", cmd.Args)
 
-		val, err := p.redis.Get(ctx, cmd.Args[0])
+		val, err := p.redis.Get(ctx, cmd.Args[0]).Result()
 		if err != nil {
 			p.responser.SendNull()
 		} else {
@@ -65,7 +63,7 @@ func (p *Proto) HandleRequest() {
 	case "SET":
 		log.Infof("=====> SET %+v", cmd.Args)
 
-		err := p.redis.Set(ctx, cmd.Args[0], cmd.Args[1], time.Duration(0))
+		err := p.redis.Set(ctx, cmd.Args[0], cmd.Args[1], time.Duration(0)).Err()
 		if err != nil {
 			p.responser.SendStr("")
 		} else {
@@ -74,12 +72,12 @@ func (p *Proto) HandleRequest() {
 	case "DEL":
 		log.Infof("=====> DEL %+v", cmd.Args)
 
-		res := p.redis.Del(ctx, cmd.Args...)
+		res := p.redis.Del(ctx, cmd.Args...).Val()
 		p.responser.SendInt(res)
 	case "KEYS":
 		log.Infof("=====> KEYS %+v", cmd.Args)
 
-		values := p.redis.Keys(ctx, cmd.Args[0])
+		values := p.redis.Keys(ctx, cmd.Args[0]).Val()
 		p.responser.SendArr(values)
 	// case "MGET":
 	// 	log.Infof("=====> MGET %+v", cmd.Args)
