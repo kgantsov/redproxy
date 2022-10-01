@@ -8,26 +8,73 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v9"
+	"github.com/kgantsov/redproxy/pkg/consistent_hashing"
 	"github.com/stretchr/testify/assert"
 )
 
-func setupClients() map[string]RedisClient {
+func TestProxyResponses(t *testing.T) {
+	port := 46379
 	clients := map[string]RedisClient{}
 
-	redisClient1 := NewMockRedisClient(
-		map[string]string{"k6": "value_6", "k213": "value_213", "k32151": "value_32151"},
-	)
-	clients["localhost:16379"] = redisClient1
+	clientRedis := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
+	})
+	clients["localhost:6379"] = clientRedis
 
-	redisClient2 := NewMockRedisClient(
-		map[string]string{"k0": "value_0", "k1": "value_1", "k5": "value_5", "k9": "value_9", "k10": "value_10"},
-	)
-	clients["localhost:26379"] = redisClient2
+	_proxy := NewRedisProxy(clients)
+	server := NewServer(_proxy, port)
 
-	redisClient3 := NewMockRedisClient(
-		map[string]string{"k2": "value_2", "k3": "value_3", "k4": "value_4", "k7": "value_7", "k8": "value_8"},
-	)
-	clients["localhost:36379"] = redisClient3
+	go server.ListenAndServe()
+
+	clientProxy := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("localhost:%d", port),
+		Password: "",
+		DB:       0,
+	})
+
+	key := "k6"
+
+	var ctx = context.Background()
+	valRedis, err := clientRedis.Get(ctx, key).Result()
+	assert.Equal(t, nil, err, fmt.Sprintf("GET %s", key))
+	valProxy, err := clientProxy.Get(ctx, key).Result()
+
+	assert.Equal(t, nil, err, fmt.Sprintf("GET %s", key))
+	assert.Equal(t, valRedis, valProxy, fmt.Sprintf("GET %s", key))
+	assert.Equal(t, "value_6", valProxy, fmt.Sprintf("GET %s", key))
+
+	server.Stop()
+}
+
+func setupClients(n int) map[string]RedisClient {
+	startPort := 16379
+	nodes := make([]string, 0)
+	clients := map[string]RedisClient{}
+
+	for i := 0; i < n; i++ {
+		store := map[string]string{}
+		redisClient := NewMockRedisClient(store)
+		node := fmt.Sprintf("localhost:%d", startPort)
+		clients[node] = redisClient
+
+		nodes = append(nodes, node)
+
+		startPort++
+	}
+
+	consistentHashing := consistent_hashing.NewConsistentHashing(nodes, 10)
+
+	var ctx = context.Background()
+
+	for i := 0; i < 20; i++ {
+		key := fmt.Sprintf("key_%d", i)
+		value := fmt.Sprintf("value_%d", i)
+		node := consistentHashing.GetNode(key)
+		client := clients[node]
+		client.Set(ctx, key, value, time.Duration(0))
+	}
 
 	return clients
 }
@@ -35,7 +82,7 @@ func setupClients() map[string]RedisClient {
 func TestServerGet(t *testing.T) {
 	port := 46379
 
-	redises := setupClients()
+	redises := setupClients(3)
 
 	_proxy := NewRedisProxy(redises)
 	server := NewServer(_proxy, port)
@@ -53,18 +100,20 @@ func TestServerGet(t *testing.T) {
 		key  string
 		want string
 	}{
-		{key: "k0", want: "value_0", err: nil},
-		{key: "k1", want: "value_1", err: nil},
-		{key: "k2", want: "value_2", err: nil},
-		{key: "k3", want: "value_3", err: nil},
-		{key: "k4", want: "value_4", err: nil},
-		{key: "k5", want: "value_5", err: nil},
-		{key: "k6", want: "value_6", err: nil},
-		{key: "k7", want: "value_7", err: nil},
-		{key: "k8", want: "value_8", err: nil},
-		{key: "k213", want: "value_213", err: nil},
-		{key: "k32151", want: "value_32151", err: nil},
 		{key: "foo", want: "", err: redis.Nil},
+		{key: "k20", want: "", err: redis.Nil},
+		{key: "foodsadsadcx", want: "", err: redis.Nil},
+	}
+
+	for i := 0; i < 20; i++ {
+		tests = append(
+			tests,
+			struct {
+				err  error
+				key  string
+				want string
+			}{key: fmt.Sprintf("key_%d", i), want: fmt.Sprintf("value_%d", i), err: nil},
+		)
 	}
 
 	for _, tc := range tests {
@@ -81,7 +130,7 @@ func TestServerGet(t *testing.T) {
 func TestServerSet(t *testing.T) {
 	port := 56379
 
-	redises := setupClients()
+	redises := setupClients(3)
 
 	_proxy := NewRedisProxy(redises)
 	server := NewServer(_proxy, port)
@@ -116,7 +165,7 @@ func TestServerSet(t *testing.T) {
 func TestServerDel(t *testing.T) {
 	port := 36379
 
-	redises := setupClients()
+	redises := setupClients(3)
 
 	_proxy := NewRedisProxy(redises)
 	server := NewServer(_proxy, port)
@@ -131,40 +180,35 @@ func TestServerDel(t *testing.T) {
 
 	var ctx = context.Background()
 
-	val, err := client.Get(ctx, "k1").Result()
-	assert.Equal(t, nil, err, "they should be equal")
-	assert.Equal(t, "value_1", val, "they should be equal")
+	for i := 0; i < 20; i++ {
+		val, err := client.Get(ctx, fmt.Sprintf("key_%d", i)).Result()
+		assert.Equal(t, nil, err, "they should be equal")
+		assert.Equal(t, fmt.Sprintf("value_%d", i), val, "they should be equal")
+	}
 
-	val, err = client.Get(ctx, "k2").Result()
-	assert.Equal(t, nil, err, "they should be equal")
-	assert.Equal(t, "value_2", val, "they should be equal")
+	deleted := client.Del(ctx, "key_0", "key_1", "key_2", "key_3", "key_4").Val()
 
-	val, err = client.Get(ctx, "k3").Result()
-	assert.Equal(t, nil, err, "they should be equal")
-	assert.Equal(t, "value_3", val, "they should be equal")
+	assert.Equal(t, int64(5), deleted, "they should be equal")
 
-	deleted := client.Del(ctx, "k1", "k3").Val()
+	for i := 0; i < 20; i++ {
+		val, err := client.Get(ctx, fmt.Sprintf("key_%d", i)).Result()
 
-	assert.Equal(t, int64(2), deleted, "they should be equal")
+		if i < 5 {
+			assert.Equal(t, redis.Nil, err, "they should be equal")
+			assert.Equal(t, "", val, "they should be equal")
+		} else {
+			assert.Equal(t, nil, err, "they should be equal")
+			assert.Equal(t, fmt.Sprintf("value_%d", i), val, "they should be equal")
+		}
+	}
 
-	val, err = client.Get(ctx, "k1").Result()
-	assert.Equal(t, redis.Nil, err, "they should be equal")
-	assert.Equal(t, "", val, "they should be equal")
-
-	val, err = client.Get(ctx, "k2").Result()
-	assert.Equal(t, nil, err, "they should be equal")
-	assert.Equal(t, "value_2", val, "they should be equal")
-
-	val, err = client.Get(ctx, "k3").Result()
-	assert.Equal(t, redis.Nil, err, "they should be equal")
-	assert.Equal(t, "", val, "they should be equal")
 	server.Stop()
 }
 
 func TestServerKeys(t *testing.T) {
 	port := 46379
 
-	redises := setupClients()
+	redises := setupClients(3)
 
 	_proxy := NewRedisProxy(redises)
 	server := NewServer(_proxy, port)
@@ -177,16 +221,24 @@ func TestServerKeys(t *testing.T) {
 		DB:       0,
 	})
 
+	all := []string{}
+	for i := 0; i < 20; i++ {
+		all = append(all, fmt.Sprintf("key_%d", i))
+	}
+
+	sort.Slice(all, func(i, j int) bool {
+		return all[i] < all[j]
+	})
+
 	tests := []struct {
 		err  error
 		key  string
 		want []string
 	}{
-		{key: "k*", want: []string{"k0", "k1", "k10", "k2", "k213", "k3", "k32151", "k4", "k5", "k6", "k7", "k8", "k9"}, err: nil},
-		{key: "k2", want: []string{"k2"}, err: nil},
-		{key: "*", want: []string{"k0", "k1", "k10", "k2", "k213", "k3", "k32151", "k4", "k5", "k6", "k7", "k8", "k9"}, err: nil},
-		{key: "k3215*", want: []string{"k32151"}, err: nil},
-		{key: "k32151", want: []string{"k32151"}, err: nil},
+		{key: "k*", want: all, err: nil},
+		{key: "key_*", want: all, err: nil},
+		{key: "key_2", want: []string{"key_2"}, err: nil},
+		{key: "*", want: all, err: nil},
 		{key: "foo", want: []string{}, err: nil},
 	}
 

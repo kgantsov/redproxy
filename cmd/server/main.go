@@ -24,17 +24,17 @@ func main() {
 
 	redisesOptions := []*redis.Options{
 		{
-			Addr:     "localhost:16379",
+			Addr:     "localhost:6379",
 			Password: "",
 			DB:       0,
 		},
 		{
-			Addr:     "localhost:26379",
+			Addr:     "localhost:6380",
 			Password: "",
 			DB:       0,
 		},
 		{
-			Addr:     "localhost:36379",
+			Addr:     "localhost:6381",
 			Password: "",
 			DB:       0,
 		},

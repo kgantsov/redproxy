@@ -4,18 +4,18 @@ services:
   redis-1:
     image: redis:7.0.4-alpine
     ports:
-      - "16379:6379"
+      - "6379:6379"
     expose:
-      - "16379"
+      - "6379"
   redis-2:
     image: redis:7.0.4-alpine
     ports:
-      - "26379:6379"
+      - "6380:6379"
     expose:
-      - "26379"
+      - "6380"
   redis-3:
     image: redis:7.0.4-alpine
     ports:
-      - "36379:6379"
+      - "6381:6379"
     expose:
-      - "36379"
+      - "6381"
