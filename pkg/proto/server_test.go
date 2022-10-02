@@ -35,15 +35,36 @@ func TestProxyResponses(t *testing.T) {
 	})
 
 	key := "k6"
+	value := "v6"
 
 	var ctx = context.Background()
-	valRedis, err := clientRedis.Get(ctx, key).Result()
-	assert.Equal(t, nil, err, fmt.Sprintf("GET %s", key))
-	valProxy, err := clientProxy.Get(ctx, key).Result()
 
-	assert.Equal(t, nil, err, fmt.Sprintf("GET %s", key))
+	errRedis := clientRedis.Set(ctx, key, value, time.Duration(0)).Err()
+	errProxy := clientProxy.Set(ctx, key, value, time.Duration(0)).Err()
+
+	assert.Equal(t, nil, errProxy, fmt.Sprintf("GET %s", key))
+	assert.Equal(t, errRedis, errProxy, fmt.Sprintf("GET %s", key))
+
+	valRedis, errRedis := clientRedis.Get(ctx, key).Result()
+	valProxy, errProxy := clientProxy.Get(ctx, key).Result()
+
+	assert.Equal(t, nil, errProxy, fmt.Sprintf("GET %s", key))
+	assert.Equal(t, errRedis, errProxy, fmt.Sprintf("GET %s", key))
 	assert.Equal(t, valRedis, valProxy, fmt.Sprintf("GET %s", key))
-	assert.Equal(t, "value_6", valProxy, fmt.Sprintf("GET %s", key))
+	assert.Equal(t, value, valProxy, fmt.Sprintf("GET %s", key))
+
+	errRedis = clientRedis.Del(ctx, key).Err()
+	errProxy = clientProxy.Del(ctx, key).Err()
+
+	assert.Equal(t, nil, errProxy, fmt.Sprintf("GET %s", key))
+	assert.Equal(t, errRedis, errProxy, fmt.Sprintf("GET %s", key))
+
+	keysRedis, errRedis := clientRedis.Keys(ctx, "k*").Result()
+	keysProxy, errProxy := clientProxy.Keys(ctx, "k*").Result()
+
+	assert.Equal(t, nil, errProxy, fmt.Sprintf("GET %s", key))
+	assert.Equal(t, errRedis, errProxy, fmt.Sprintf("GET %s", key))
+	assert.Equal(t, keysRedis, keysProxy, fmt.Sprintf("GET %s", key))
 
 	server.Stop()
 }
