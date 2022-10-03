@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestProxyResponses(t *testing.T) {
+func TestRedisProxyResponseComparison(t *testing.T) {
 	port := 46379
 	clients := map[string]RedisClient{}
 
