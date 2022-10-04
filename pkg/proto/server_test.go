@@ -226,6 +226,41 @@ func TestServerDel(t *testing.T) {
 	server.Stop()
 }
 
+func TestServerAppend(t *testing.T) {
+	port := 56379
+
+	redises := setupClients(3)
+
+	_proxy := NewRedisProxy(redises)
+	server := NewServer(_proxy, port)
+
+	go server.ListenAndServe()
+
+	client := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("localhost:%d", port),
+		Password: "",
+		DB:       0,
+	})
+
+	var ctx = context.Background()
+
+	val, err := client.Get(ctx, "key_0").Result()
+
+	assert.Equal(t, nil, err, "they should be equal")
+	assert.Equal(t, "value_0", val, "they should be equal")
+
+	err = client.Append(ctx, "key_0", "_long_suffix_0").Err()
+
+	assert.Equal(t, nil, err, "they should be equal")
+
+	val, err = client.Get(ctx, "key_0").Result()
+
+	assert.Equal(t, nil, err, "they should be equal")
+	assert.Equal(t, "value_0_long_suffix_0", val, "they should be equal")
+
+	server.Stop()
+}
+
 func TestServerKeys(t *testing.T) {
 	port := 46379
 

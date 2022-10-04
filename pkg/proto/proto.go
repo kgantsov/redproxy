@@ -79,6 +79,11 @@ func (p *Proto) HandleRequest() {
 
 		values := p.redis.Keys(ctx, cmd.Args[0]).Val()
 		p.responser.SendArr(values)
+	case "APPEND":
+		log.Infof("=====> APPEND %+v", cmd.Args)
+
+		value := p.redis.Append(ctx, cmd.Args[0], cmd.Args[1]).Val()
+		p.responser.SendInt(value)
 	// case "MGET":
 	// 	log.Infof("=====> MGET %+v", cmd.Args)
 

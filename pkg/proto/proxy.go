@@ -16,6 +16,7 @@ type RedisClient interface {
 	Get(ctx context.Context, key string) *redis.StringCmd
 	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.StatusCmd
 	Del(ctx context.Context, keys ...string) *redis.IntCmd
+	Append(ctx context.Context, key, value string) *redis.IntCmd
 	Keys(ctx context.Context, pattern string) *redis.StringSliceCmd
 }
 
@@ -67,6 +68,19 @@ func (c *MockRedisClient) Del(ctx context.Context, keys ...string) *redis.IntCmd
 
 	cmd := &redis.IntCmd{}
 	cmd.SetVal(res)
+
+	return cmd
+}
+
+func (c *MockRedisClient) Append(ctx context.Context, key, value string) *redis.IntCmd {
+	curValue, ok := c.store[key]
+	cmd := &redis.IntCmd{}
+
+	if ok {
+		c.store[key] = curValue + value
+
+		cmd.SetVal(1)
+	}
 
 	return cmd
 }
@@ -147,6 +161,10 @@ func (c *RedisProxy) Del(ctx context.Context, keys ...string) *redis.IntCmd {
 	cmd.SetVal(res)
 
 	return cmd
+}
+
+func (c *RedisProxy) Append(ctx context.Context, key, value string) *redis.IntCmd {
+	return c.getNode(key).Append(ctx, key, value)
 }
 
 func (c *RedisProxy) Keys(ctx context.Context, pattern string) *redis.StringSliceCmd {
