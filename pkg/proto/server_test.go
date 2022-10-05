@@ -12,73 +12,22 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRedisProxyResponseComparison(t *testing.T) {
-	port := 46379
-	clients := map[string]RedisClient{}
-
-	clientRedis := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "",
-		DB:       0,
-	})
-	clients["localhost:6379"] = clientRedis
-
-	_proxy := NewRedisProxy(clients)
-	server := NewServer(_proxy, port)
-
-	go server.ListenAndServe()
-
-	clientProxy := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("localhost:%d", port),
-		Password: "",
-		DB:       0,
-	})
-
-	key := "k6"
-	value := "v6"
-
-	var ctx = context.Background()
-
-	errRedis := clientRedis.Set(ctx, key, value, time.Duration(0)).Err()
-	errProxy := clientProxy.Set(ctx, key, value, time.Duration(0)).Err()
-
-	assert.Equal(t, nil, errProxy, fmt.Sprintf("GET %s", key))
-	assert.Equal(t, errRedis, errProxy, fmt.Sprintf("GET %s", key))
-
-	valRedis, errRedis := clientRedis.Get(ctx, key).Result()
-	valProxy, errProxy := clientProxy.Get(ctx, key).Result()
-
-	assert.Equal(t, nil, errProxy, fmt.Sprintf("GET %s", key))
-	assert.Equal(t, errRedis, errProxy, fmt.Sprintf("GET %s", key))
-	assert.Equal(t, valRedis, valProxy, fmt.Sprintf("GET %s", key))
-	assert.Equal(t, value, valProxy, fmt.Sprintf("GET %s", key))
-
-	errRedis = clientRedis.Del(ctx, key).Err()
-	errProxy = clientProxy.Del(ctx, key).Err()
-
-	assert.Equal(t, nil, errProxy, fmt.Sprintf("GET %s", key))
-	assert.Equal(t, errRedis, errProxy, fmt.Sprintf("GET %s", key))
-
-	keysRedis, errRedis := clientRedis.Keys(ctx, "k*").Result()
-	keysProxy, errProxy := clientProxy.Keys(ctx, "k*").Result()
-
-	assert.Equal(t, nil, errProxy, fmt.Sprintf("GET %s", key))
-	assert.Equal(t, errRedis, errProxy, fmt.Sprintf("GET %s", key))
-	assert.Equal(t, keysRedis, keysProxy, fmt.Sprintf("GET %s", key))
-
-	server.Stop()
-}
-
 func setupClients(n int) map[string]RedisClient {
-	startPort := 16379
+	startPort := 6379
 	nodes := make([]string, 0)
 	clients := map[string]RedisClient{}
 
+	var ctx = context.Background()
+
 	for i := 0; i < n; i++ {
-		store := map[string]string{}
-		redisClient := NewMockRedisClient(store)
 		node := fmt.Sprintf("localhost:%d", startPort)
-		clients[node] = redisClient
+		clientRedis := redis.NewClient(&redis.Options{
+			Addr:     node,
+			Password: "",
+			DB:       0,
+		})
+		clients[node] = clientRedis
+		clientRedis.FlushAll(ctx)
 
 		nodes = append(nodes, node)
 
@@ -87,13 +36,12 @@ func setupClients(n int) map[string]RedisClient {
 
 	consistentHashing := consistent_hashing.NewConsistentHashing(nodes, 10)
 
-	var ctx = context.Background()
-
 	for i := 0; i < 20; i++ {
 		key := fmt.Sprintf("key_%d", i)
 		value := fmt.Sprintf("value_%d", i)
 		node := consistentHashing.GetNode(key)
 		client := clients[node]
+		fmt.Printf("=====> %s %s\n", node, key)
 		client.Set(ctx, key, value, time.Duration(0))
 	}
 
@@ -257,6 +205,57 @@ func TestServerAppend(t *testing.T) {
 
 	assert.Equal(t, nil, err, "they should be equal")
 	assert.Equal(t, "value_0_long_suffix_0", val, "they should be equal")
+
+	server.Stop()
+}
+
+func TestServerIncrDecr(t *testing.T) {
+	port := 56379
+
+	redises := setupClients(3)
+
+	_proxy := NewRedisProxy(redises)
+	server := NewServer(_proxy, port)
+
+	go server.ListenAndServe()
+
+	client := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("localhost:%d", port),
+		Password: "",
+		DB:       0,
+	})
+
+	var ctx = context.Background()
+
+	err := client.Set(ctx, "counter", 1, time.Duration(0)).Err()
+	assert.Equal(t, nil, err, "they should be equal")
+
+	val, _ := client.Get(ctx, "counter").Result()
+	assert.Equal(t, "1", val, "they should be equal")
+
+	err = client.Incr(ctx, "counter").Err()
+	assert.Equal(t, nil, err, "they should be equal")
+
+	val, _ = client.Get(ctx, "counter").Result()
+	assert.Equal(t, "2", val, "they should be equal")
+
+	err = client.IncrBy(ctx, "counter", 8).Err()
+	assert.Equal(t, nil, err, "they should be equal")
+
+	val, _ = client.Get(ctx, "counter").Result()
+	assert.Equal(t, "10", val, "they should be equal")
+
+	err = client.Decr(ctx, "counter").Err()
+	assert.Equal(t, nil, err, "they should be equal")
+
+	val, _ = client.Get(ctx, "counter").Result()
+	assert.Equal(t, "9", val, "they should be equal")
+
+	err = client.DecrBy(ctx, "counter", 4).Err()
+	assert.Equal(t, nil, err, "they should be equal")
+
+	val, _ = client.Get(ctx, "counter").Result()
+	assert.Equal(t, "5", val, "they should be equal")
 
 	server.Stop()
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -83,6 +84,40 @@ func (p *Proto) HandleRequest() {
 		log.Infof("=====> APPEND %+v", cmd.Args)
 
 		value := p.redis.Append(ctx, cmd.Args[0], cmd.Args[1]).Val()
+		p.responser.SendInt(value)
+	case "INCR":
+		log.Infof("=====> INCR %+v", cmd.Args)
+
+		value := p.redis.IncrBy(ctx, cmd.Args[0], 1).Val()
+		p.responser.SendInt(value)
+	case "INCRBY":
+		log.Infof("=====> INCRBY %+v", cmd.Args)
+
+		decrBy, err := strconv.Atoi(cmd.Args[1])
+
+		if err != nil {
+			p.responser.SendError(err)
+			return
+		}
+
+		value := p.redis.IncrBy(ctx, cmd.Args[0], int64(decrBy)).Val()
+		p.responser.SendInt(value)
+	case "DECR":
+		log.Infof("=====> DECR %+v", cmd.Args)
+
+		value := p.redis.DecrBy(ctx, cmd.Args[0], 1).Val()
+		p.responser.SendInt(value)
+	case "DECRBY":
+		log.Infof("=====> DECRBY %+v", cmd.Args)
+
+		decrBy, err := strconv.Atoi(cmd.Args[1])
+
+		if err != nil {
+			p.responser.SendError(err)
+			return
+		}
+
+		value := p.redis.DecrBy(ctx, cmd.Args[0], int64(decrBy)).Val()
 		p.responser.SendInt(value)
 	// case "MGET":
 	// 	log.Infof("=====> MGET %+v", cmd.Args)

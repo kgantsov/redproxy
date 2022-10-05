@@ -2,8 +2,6 @@ package proto
 
 import (
 	"context"
-	"errors"
-	"path/filepath"
 	"time"
 
 	"github.com/go-redis/redis/v9"
@@ -17,88 +15,9 @@ type RedisClient interface {
 	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.StatusCmd
 	Del(ctx context.Context, keys ...string) *redis.IntCmd
 	Append(ctx context.Context, key, value string) *redis.IntCmd
+	IncrBy(ctx context.Context, key string, value int64) *redis.IntCmd
+	DecrBy(ctx context.Context, key string, decrement int64) *redis.IntCmd
 	Keys(ctx context.Context, pattern string) *redis.StringSliceCmd
-}
-
-type MockRedisClient struct {
-	store map[string]string
-}
-
-func NewMockRedisClient(store map[string]string) *MockRedisClient {
-	r := &MockRedisClient{store: store}
-
-	return r
-}
-
-func (c *MockRedisClient) Get(ctx context.Context, key string) *redis.StringCmd {
-	value, ok := c.store[key]
-
-	cmd := &redis.StringCmd{}
-
-	if !ok {
-		cmd.SetErr(errors.New("not found"))
-	}
-
-	cmd.SetVal(value)
-
-	return cmd
-}
-
-func (c *MockRedisClient) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.StatusCmd {
-	c.store[key] = value.(string)
-
-	cmd := &redis.StatusCmd{}
-	cmd.SetVal("1")
-
-	return cmd
-}
-
-func (c *MockRedisClient) Del(ctx context.Context, keys ...string) *redis.IntCmd {
-	var res int64
-
-	for _, key := range keys {
-		_, ok := c.store[key]
-
-		if ok {
-			res++
-
-			delete(c.store, key)
-		}
-	}
-
-	cmd := &redis.IntCmd{}
-	cmd.SetVal(res)
-
-	return cmd
-}
-
-func (c *MockRedisClient) Append(ctx context.Context, key, value string) *redis.IntCmd {
-	curValue, ok := c.store[key]
-	cmd := &redis.IntCmd{}
-
-	if ok {
-		c.store[key] = curValue + value
-
-		cmd.SetVal(1)
-	}
-
-	return cmd
-}
-
-func (c *MockRedisClient) Keys(ctx context.Context, pattern string) *redis.StringSliceCmd {
-	keys := []string{}
-
-	for key, _ := range c.store {
-		matched, _ := filepath.Match(pattern, key)
-		if matched {
-			keys = append(keys, key)
-		}
-	}
-
-	cmd := &redis.StringSliceCmd{}
-	cmd.SetVal(keys)
-
-	return cmd
 }
 
 type RedisProxy struct {
@@ -165,6 +84,14 @@ func (c *RedisProxy) Del(ctx context.Context, keys ...string) *redis.IntCmd {
 
 func (c *RedisProxy) Append(ctx context.Context, key, value string) *redis.IntCmd {
 	return c.getNode(key).Append(ctx, key, value)
+}
+
+func (c *RedisProxy) IncrBy(ctx context.Context, key string, value int64) *redis.IntCmd {
+	return c.getNode(key).IncrBy(ctx, key, value)
+}
+
+func (c *RedisProxy) DecrBy(ctx context.Context, key string, decrement int64) *redis.IntCmd {
+	return c.getNode(key).DecrBy(ctx, key, decrement)
 }
 
 func (c *RedisProxy) Keys(ctx context.Context, pattern string) *redis.StringSliceCmd {
