@@ -119,30 +119,35 @@ func (p *Proto) HandleRequest() {
 
 		value := p.redis.DecrBy(ctx, cmd.Args[0], int64(decrBy)).Val()
 		p.responser.SendInt(value)
-	// case "MGET":
-	// 	log.Infof("=====> MGET %+v", cmd.Args)
+	case "MGET":
+		log.Infof("=====> MGET %+v", cmd.Args)
 
-	// 	var results []string
+		values := p.redis.MGet(ctx, cmd.Args...).Val()
 
-	// 	for _, key := range cmd.Args {
-	// 		value, ok := p.store[key]
-	// 		if ok {
-	// 			results = append(results, value)
-	// 		}
-	// 	}
+		log.Infof("=====> MGET %+v = %+v", cmd.Args, values)
 
-	// 	p.responser.sendArr(results)
+		vals := []string{}
+		for _, val := range values {
+			vals = append(vals, val.(string))
+		}
 
-	// case "MSET":
-	// 	log.Infof("=====> MSET %+v", cmd.Args)
+		p.responser.SendArr(vals)
 
-	// 	for i := 0; i < len(cmd.Args); i += 2 {
-	// 		key := cmd.Args[i]
-	// 		value := cmd.Args[i+1]
-	// 		p.store[key] = value
-	// 	}
+	case "MSET":
+		log.Infof("=====> MSET %+v", cmd.Args)
 
-	// 	p.responser.sendStr("OK")
+		args := []interface{}{}
+		for _, arg := range cmd.Args {
+			args = append(args, arg)
+		}
+
+		err := p.redis.MSet(ctx, args...)
+
+		if err != nil {
+			p.responser.SendStr("")
+		} else {
+			p.responser.SendStr("OK")
+		}
 
 	case "PING":
 		p.responser.SendPong()

@@ -311,3 +311,101 @@ func TestServerKeys(t *testing.T) {
 
 	server.Stop()
 }
+
+func TestServerMGet(t *testing.T) {
+	port := 46379
+
+	redises := setupClients(3)
+
+	_proxy := NewRedisProxy(redises)
+	server := NewServer(_proxy, port)
+
+	go server.ListenAndServe()
+
+	client := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("localhost:%d", port),
+		Password: "",
+		DB:       0,
+	})
+
+	tests := []struct {
+		err  error
+		keys []string
+		want []interface{}
+	}{
+		{
+			keys: []string{"key_1", "key_2", "key_3", "do not exist", "key_4", "KJDK", "key_8"},
+			want: []interface{}{"value_1", "value_2", "value_3", "", "value_4", "", "value_8"},
+			err:  nil,
+		},
+	}
+
+	r := redises["localhost:6379"]
+
+	for _, tc := range tests {
+		var ctx = context.Background()
+		fmt.Printf("=====> )))) -----> %#v", r.MGet(ctx, tc.keys...).Val())
+		val, err := client.MGet(ctx, tc.keys...).Result()
+		fmt.Printf("=====> )))) %s %+v", val, r.MGet(ctx, tc.keys...).Val())
+
+		assert.Equal(t, tc.err, err, fmt.Sprintf("MGET %s error", tc.keys))
+		assert.Equal(t, tc.want, val, fmt.Sprintf("MGET %s", tc.keys))
+	}
+
+	server.Stop()
+}
+
+func TestServerMSet(t *testing.T) {
+	port := 46379
+
+	redises := setupClients(3)
+
+	_proxy := NewRedisProxy(redises)
+	server := NewServer(_proxy, port)
+
+	go server.ListenAndServe()
+
+	client := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("localhost:%d", port),
+		Password: "",
+		DB:       0,
+	})
+
+	tests := []struct {
+		err     error
+		keyVals []string
+		want    []interface{}
+	}{
+		{
+			keyVals: []string{"key1", "value1", "key2", "value2", "foo", "bar", "IOKL", "cxzcsd123"},
+			want:    []interface{}{"value1", "value2", "bar", "cxzcsd123"},
+			err:     nil,
+		},
+		{
+			keyVals: []string{"test_key", "this is the value"},
+			want:    []interface{}{"this is the value"},
+			err:     nil,
+		},
+	}
+
+	for _, tc := range tests {
+		var ctx = context.Background()
+
+		err := client.MSet(
+			ctx, tc.keyVals,
+		).Err()
+		assert.Equal(t, nil, err)
+
+		keys := []string{}
+		for i := 0; i < len(tc.keyVals); i += 2 {
+			keys = append(keys, tc.keyVals[i])
+		}
+
+		val, err := client.MGet(ctx, keys...).Result()
+
+		assert.Equal(t, tc.err, err, fmt.Sprintf("MGET %s error", keys))
+		assert.Equal(t, tc.want, val, fmt.Sprintf("MGET %s", keys))
+	}
+
+	server.Stop()
+}

@@ -18,6 +18,8 @@ type RedisClient interface {
 	IncrBy(ctx context.Context, key string, value int64) *redis.IntCmd
 	DecrBy(ctx context.Context, key string, decrement int64) *redis.IntCmd
 	Keys(ctx context.Context, pattern string) *redis.StringSliceCmd
+	MGet(ctx context.Context, keys ...string) *redis.SliceCmd
+	MSet(ctx context.Context, values ...interface{}) *redis.StatusCmd
 }
 
 type RedisProxy struct {
@@ -56,6 +58,18 @@ func (c *RedisProxy) getNodes(keys ...string) map[string]RedisClient {
 	}
 
 	return keyClients
+}
+
+func (c *RedisProxy) getClientsForKeys(keys ...string) map[string][]string {
+	nodeKeys := map[string][]string{}
+
+	for _, key := range keys {
+		node := c.consistentHashing.GetNode(key)
+		log.Debugf("Got a node `%s` for a key `%s`", node, key)
+		nodeKeys[node] = append(nodeKeys[node], key)
+	}
+
+	return nodeKeys
 }
 
 func (c *RedisProxy) Get(ctx context.Context, key string) *redis.StringCmd {
@@ -104,6 +118,56 @@ func (c *RedisProxy) Keys(ctx context.Context, pattern string) *redis.StringSlic
 
 	cmd := &redis.StringSliceCmd{}
 	cmd.SetVal(keys)
+
+	return cmd
+}
+
+func (c *RedisProxy) MGet(ctx context.Context, keys ...string) *redis.SliceCmd {
+	values := []interface{}{}
+
+	for _, key := range keys {
+		val := c.getNode(key).Get(ctx, key).Val()
+		values = append(values, val)
+	}
+
+	cmd := &redis.SliceCmd{}
+	cmd.SetVal(values)
+
+	return cmd
+}
+
+func (c *RedisProxy) MSet(ctx context.Context, values ...interface{}) *redis.StatusCmd {
+	keys := []string{}
+	keyVal := map[interface{}]interface{}{}
+
+	cmd := &redis.StatusCmd{}
+
+	for i := 0; i < len(values); i += 2 {
+		log.Infof("------> %+v", values[i])
+		key := values[i]
+		value := values[i+1]
+
+		keyVal[values[i]] = value
+
+		keys = append(keys, key.(string))
+	}
+
+	nodeKeys := c.getClientsForKeys(keys...)
+
+	for node, nKeys := range nodeKeys {
+		client := c.clients[node]
+
+		args := []interface{}{}
+
+		for _, key := range nKeys {
+			args = append(args, key, keyVal[key])
+		}
+
+		_, err := client.MSet(ctx, args...).Result()
+		if err != nil {
+			cmd.SetErr(err)
+		}
+	}
 
 	return cmd
 }
