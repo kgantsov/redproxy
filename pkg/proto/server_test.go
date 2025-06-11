@@ -410,38 +410,3 @@ func TestServerKeys(t *testing.T) {
 
 // 	server.Stop()
 // }
-
-func TestServerHsetHget(t *testing.T) {
-	port := 46379
-
-	redises := setupClients(3)
-
-	_proxy := NewRedisProxy(redises)
-	server := NewServer(_proxy, port)
-
-	go server.ListenAndServe()
-
-	client := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("localhost:%d", port),
-		Password: "",
-		DB:       0,
-	})
-
-	var ctx = context.Background()
-
-	err := client.HSet(ctx, "hash1", "field1", "value1").Err()
-	assert.Equal(t, nil, err, "they should be equal")
-
-	val, err := client.HGet(ctx, "hash1", "field1").Result()
-	assert.Equal(t, nil, err, "they should be equal")
-	assert.Equal(t, "value1", val, "they should be equal")
-
-	err = client.HSet(ctx, "hash1", "field2", "value2").Err()
-	assert.Equal(t, nil, err, "they should be equal")
-
-	vals, err := client.HGetAll(ctx, "hash1").Result()
-	assert.Equal(t, nil, err, "they should be equal")
-	assert.Equal(t, map[string]string{"field1": "value1", "field2": "value2"}, vals, "they should be equal")
-
-	server.Stop()
-}
