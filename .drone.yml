@@ -70,15 +70,15 @@ services:
 - name: redis-0
   image: redis:7.2-alpine
   ports:
-    - 6379
+    - 6379:6379
 - name: redis-1
   image: redis:7.2-alpine
   ports:
-    - 6380
+    - 6380:6379
 - name: redis-2
   image: redis:7.2-alpine
   ports:
-    - 6381
+    - 6381:6379
 
 volumes:
 - name: deps
