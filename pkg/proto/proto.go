@@ -70,6 +70,22 @@ func (p *Proto) HandleRequest() error {
 		} else {
 			p.responser.SendStr("OK")
 		}
+	case "HGET":
+		log.Infof("=====> HGET %+v", cmd.Args)
+		val, err := p.redis.HGet(ctx, cmd.Args[0], cmd.Args[1]).Result()
+		if err != nil {
+			p.responser.SendNull()
+		} else {
+			p.responser.SendStr(val)
+		}
+	case "HSET":
+		log.Infof("=====> HSET %+v", cmd.Args)
+		err := p.redis.HSet(ctx, cmd.Args[0], cmd.Args[1], cmd.Args[2]).Err()
+		if err != nil {
+			p.responser.SendStr("")
+		} else {
+			p.responser.SendStr("OK")
+		}
 	case "DEL":
 		log.Infof("=====> DEL %+v", cmd.Args)
 

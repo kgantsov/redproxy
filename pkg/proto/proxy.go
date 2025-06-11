@@ -20,6 +20,8 @@ type RedisClient interface {
 	Keys(ctx context.Context, pattern string) *redis.StringSliceCmd
 	MGet(ctx context.Context, keys ...string) *redis.SliceCmd
 	MSet(ctx context.Context, values ...interface{}) *redis.StatusCmd
+	HGet(ctx context.Context, key, field string) *redis.StringCmd
+	HSet(ctx context.Context, key string, values ...interface{}) *redis.IntCmd
 }
 
 type RedisProxy struct {
@@ -170,4 +172,11 @@ func (c *RedisProxy) MSet(ctx context.Context, values ...interface{}) *redis.Sta
 	}
 
 	return cmd
+}
+
+func (c *RedisProxy) HGet(ctx context.Context, key, field string) *redis.StringCmd {
+	return c.getNode(key).HGet(ctx, key, field)
+}
+func (c *RedisProxy) HSet(ctx context.Context, key string, values ...interface{}) *redis.IntCmd {
+	return c.getNode(key).HSet(ctx, key, values...)
 }
