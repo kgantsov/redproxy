@@ -2,8 +2,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/go-redis/redis/v9"
@@ -14,13 +16,17 @@ import (
 
 var (
 	logLevel string
+	hostsStr string
 	port     int
 )
 
 func main() {
 	flag.StringVar(&logLevel, "log_level", "debug", "Log level")
+	flag.StringVar(&hostsStr, "hosts", "localhost:6379,localhost:6380,localhost:6381", "Redis hosts")
 	flag.IntVar(&port, "port", 46379, "Redis Port")
 	flag.Parse()
+
+	hosts := strings.Split(hostsStr, ",")
 
 	level, _ := log.ParseLevel(logLevel)
 	log.SetLevel(level)
@@ -29,27 +35,14 @@ func main() {
 
 	redises := map[string]proto.RedisClient{}
 
-	redisesOptions := []*redis.Options{
-		{
-			Addr:     "localhost:6379",
+	for _, host := range hosts {
+		fmt.Printf("Connecting to Redis at %s\n", host)
+		client := redis.NewClient(&redis.Options{
+			Addr:     host,
 			Password: "",
 			DB:       0,
-		},
-		{
-			Addr:     "localhost:6380",
-			Password: "",
-			DB:       0,
-		},
-		{
-			Addr:     "localhost:6381",
-			Password: "",
-			DB:       0,
-		},
-	}
-
-	for _, redisOptions := range redisesOptions {
-		client := redis.NewClient(redisOptions)
-		redises[redisOptions.Addr] = client
+		})
+		redises[host] = client
 		// client.MSet()
 	}
 
