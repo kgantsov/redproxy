@@ -20,8 +20,8 @@ func setupClients(n int) map[string]RedisClient {
 	var ctx = context.Background()
 
 	for i := 0; i < n; i++ {
-		// node := fmt.Sprintf("redis-%d:%d", i+1, startPort)
-		node := fmt.Sprintf("localhost:%d", startPort)
+		node := fmt.Sprintf("redis-%d:%d", i+1, startPort)
+		// node := fmt.Sprintf("localhost:%d", startPort)
 		clientRedis := redis.NewClient(&redis.Options{
 			Addr:     node,
 			Password: "",
