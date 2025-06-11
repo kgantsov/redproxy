@@ -12,11 +12,18 @@ import (
 	"github.com/kgantsov/redproxy/pkg/proto"
 )
 
-func main() {
-	level, _ := log.ParseLevel("DEBUG")
-	log.SetLevel(level)
+var (
+	logLevel string
+	port     int
+)
 
-	redisPort := flag.Int("redis_port", 46379, "Redis Port")
+func main() {
+	flag.StringVar(&logLevel, "log_level", "debug", "Log level")
+	flag.IntVar(&port, "port", 46379, "Redis Port")
+	flag.Parse()
+
+	level, _ := log.ParseLevel(logLevel)
+	log.SetLevel(level)
 
 	flag.Parse()
 
@@ -48,7 +55,7 @@ func main() {
 
 	proxy := proto.NewRedisProxy(redises)
 
-	srv := proto.NewServer(proxy, *redisPort)
+	srv := proto.NewServer(proxy, port)
 
 	sigs := make(chan os.Signal, 1)
 
