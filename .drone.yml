@@ -67,18 +67,17 @@ steps:
       - tag
 
 services:
-- name: redis-0
+- name: redis1
   image: redis:7.2-alpine
-  ports:
-    - "6379:6379"
-- name: redis-1
+  command: ["redis-server", "--port", "6379"]
+
+- name: redis2
   image: redis:7.2-alpine
-  ports:
-    - "6380:6379"
-- name: redis-2
+  command: ["redis-server", "--port", "6380"]
+
+- name: redis3
   image: redis:7.2-alpine
-  ports:
-    - "6381:6379"
+  command: ["redis-server", "--port", "6381"]
 
 volumes:
 - name: deps
