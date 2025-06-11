@@ -31,7 +31,7 @@ func NewProto(redis *RedisProxy, reader io.Reader, writer io.Writer) *Proto {
 	return p
 }
 
-func (p *Proto) HandleRequest() {
+func (p *Proto) HandleRequest() error {
 	var ctx = context.Background()
 
 	cmd, err := p.parser.ParseCommand()
@@ -44,7 +44,7 @@ func (p *Proto) HandleRequest() {
 			p.responser.SendError(err)
 		}
 
-		return
+		return err
 	}
 
 	switch cmd.Name {
@@ -97,7 +97,7 @@ func (p *Proto) HandleRequest() {
 
 		if err != nil {
 			p.responser.SendError(err)
-			return
+			return nil
 		}
 
 		value := p.redis.IncrBy(ctx, cmd.Args[0], int64(decrBy)).Val()
@@ -114,7 +114,7 @@ func (p *Proto) HandleRequest() {
 
 		if err != nil {
 			p.responser.SendError(err)
-			return
+			return nil
 		}
 
 		value := p.redis.DecrBy(ctx, cmd.Args[0], int64(decrBy)).Val()
@@ -152,6 +152,8 @@ func (p *Proto) HandleRequest() {
 	case "PING":
 		p.responser.SendPong()
 	default:
-		p.responser.SendError(fmt.Errorf("unknown command '%s'", cmd.Args))
+		p.responser.SendError(fmt.Errorf("unsupported command '%s'", cmd.Name))
 	}
+
+	return nil
 }

@@ -68,7 +68,15 @@ func (srv *Server) handleClient(conn io.ReadWriteCloser) {
 	defer conn.Close()
 
 	for {
-		redisProto.HandleRequest()
+		err := redisProto.HandleRequest()
+		if err != nil {
+			if err == io.EOF {
+				log.Debug("Client has been disconnected")
+			} else {
+				log.Error("Error handling request: ", err)
+			}
+			return
+		}
 	}
 }
 
