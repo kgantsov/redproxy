@@ -20,7 +20,7 @@ func setupClients(n int) map[string]RedisClient {
 	var ctx = context.Background()
 
 	for i := 0; i < n; i++ {
-		node := fmt.Sprintf("localhost:%d", startPort)
+		node := fmt.Sprintf("redis-%d:%d", n+1, startPort)
 		clientRedis := redis.NewClient(&redis.Options{
 			Addr:     node,
 			Password: "",
@@ -406,6 +406,41 @@ func TestServerMSet(t *testing.T) {
 		assert.Equal(t, tc.err, err, fmt.Sprintf("MGET %s error", keys))
 		assert.Equal(t, tc.want, val, fmt.Sprintf("MGET %s", keys))
 	}
+
+	server.Stop()
+}
+
+func TestServerHsetHget(t *testing.T) {
+	port := 46379
+
+	redises := setupClients(3)
+
+	_proxy := NewRedisProxy(redises)
+	server := NewServer(_proxy, port)
+
+	go server.ListenAndServe()
+
+	client := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("localhost:%d", port),
+		Password: "",
+		DB:       0,
+	})
+
+	var ctx = context.Background()
+
+	err := client.HSet(ctx, "hash1", "field1", "value1").Err()
+	assert.Equal(t, nil, err, "they should be equal")
+
+	val, err := client.HGet(ctx, "hash1", "field1").Result()
+	assert.Equal(t, nil, err, "they should be equal")
+	assert.Equal(t, "value1", val, "they should be equal")
+
+	err = client.HSet(ctx, "hash1", "field2", "value2").Err()
+	assert.Equal(t, nil, err, "they should be equal")
+
+	vals, err := client.HGetAll(ctx, "hash1").Result()
+	assert.Equal(t, nil, err, "they should be equal")
+	assert.Equal(t, map[string]string{"field1": "value1", "field2": "value2"}, vals, "they should be equal")
 
 	server.Stop()
 }

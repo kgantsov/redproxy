@@ -67,15 +67,15 @@ steps:
       - tag
 
 services:
-- name: redis1
+- name: redis-1
   image: redis:7.2-alpine
   command: ["redis-server", "--port", "6379"]
 
-- name: redis2
+- name: redis-2
   image: redis:7.2-alpine
   command: ["redis-server", "--port", "6380"]
 
-- name: redis3
+- name: redis-3
   image: redis:7.2-alpine
   command: ["redis-server", "--port", "6381"]
 
