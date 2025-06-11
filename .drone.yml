@@ -1,0 +1,85 @@
+kind: pipeline
+name: default
+
+steps:
+
+- name: test
+  image: golang:1.23.0
+  volumes:
+  - name: deps
+    path: /go
+  commands:
+  - go test ./... -cover -coverprofile coverage.out
+  when:
+    event:
+      exclude:
+      - tag
+
+- name: codecov
+  image: robertstettner/drone-codecov
+  settings:
+    token:
+      from_secret: CODECOV_TOKEN
+  when:
+    event:
+      exclude:
+      - tag
+
+
+- name: build
+  image: golang:1.23.0
+  volumes:
+  - name: deps
+    path: /go
+  commands:
+    - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dist/redproxy cmd/server/main.go
+    - tar -czf dist/redproxy-${DRONE_TAG##v}-linux-amd64.tar.gz dist/redproxy
+    - rm -f dist/redproxy
+  when:
+    event:
+      - tag
+
+- name: build and push the service
+  image: plugins/docker
+  settings:
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+    repo: kgantsov/redproxy
+    context: .
+    dockerfile: ./Dockerfile
+    auto_tag: true
+  environment:
+    DOCKER_BUILDKIT: 1
+
+- name: publish
+  image: plugins/github-release
+  volumes:
+  - name: deps
+    path: /go
+  settings:
+    api_key:
+      from_secret: github_token
+    files: dist/*
+  when:
+    event:
+      - tag
+
+services:
+- name: redis-0
+  image: redis:7.2-alpine
+  ports:
+    - 6379
+- name: redis-1
+  image: redis:7.2-alpine
+  ports:
+    - 6380
+- name: redis-2
+  image: redis:7.2-alpine
+  ports:
+    - 6381
+
+volumes:
+- name: deps
+  temp: {}
