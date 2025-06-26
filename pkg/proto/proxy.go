@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v9"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 
 	"github.com/kgantsov/redproxy/pkg/consistent_hashing"
 )
@@ -45,7 +45,7 @@ func NewRedisProxy(clients map[string]RedisClient) *RedisProxy {
 
 func (c *RedisProxy) getNode(key string) RedisClient {
 	node := c.consistentHashing.GetNode(key)
-	log.Debugf("Got a node `%s` for a key `%s`", node, key)
+	log.Debug().Msgf("Got a node `%s` for a key `%s`", node, key)
 
 	return c.clients[node]
 }
@@ -55,7 +55,7 @@ func (c *RedisProxy) getNodes(keys ...string) map[string]RedisClient {
 
 	for _, key := range keys {
 		node := c.consistentHashing.GetNode(key)
-		log.Debugf("Got a node `%s` for a key `%s`", node, key)
+		log.Debug().Msgf("Got a node `%s` for a key `%s`", node, key)
 		keyClients[key] = c.clients[node]
 	}
 
@@ -67,7 +67,7 @@ func (c *RedisProxy) getClientsForKeys(keys ...string) map[string][]string {
 
 	for _, key := range keys {
 		node := c.consistentHashing.GetNode(key)
-		log.Debugf("Got a node `%s` for a key `%s`", node, key)
+		log.Debug().Msgf("Got a node `%s` for a key `%s`", node, key)
 		nodeKeys[node] = append(nodeKeys[node], key)
 	}
 
@@ -145,7 +145,7 @@ func (c *RedisProxy) MSet(ctx context.Context, values ...interface{}) *redis.Sta
 	cmd := &redis.StatusCmd{}
 
 	for i := 0; i < len(values); i += 2 {
-		log.Infof("------> %+v", values[i])
+		log.Info().Msgf("------> %+v", values[i])
 		key := values[i]
 		value := values[i+1]
 

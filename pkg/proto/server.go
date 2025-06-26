@@ -6,7 +6,7 @@ import (
 	"net"
 	"sync"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 type Server struct {
@@ -33,7 +33,7 @@ func NewServer(redis *RedisProxy, port int) *Server {
 }
 
 func (srv *Server) ListenAndServe() {
-	log.Info("Listening on port: ", srv.Port)
+	log.Info().Msgf("Listening on port: %d", srv.Port)
 	defer srv.wg.Done()
 
 	for {
@@ -43,7 +43,7 @@ func (srv *Server) ListenAndServe() {
 			case <-srv.quit:
 				return
 			default:
-				log.Error("Fatal error: ", err.Error())
+				log.Error().Msgf("Fatal error: %s", err.Error())
 				continue
 			}
 		}
@@ -71,9 +71,9 @@ func (srv *Server) handleClient(conn io.ReadWriteCloser) {
 		err := redisProto.HandleRequest()
 		if err != nil {
 			if err == io.EOF {
-				log.Debug("Client has been disconnected")
+				log.Debug().Msg("Client has been disconnected")
 			} else {
-				log.Error("Error handling request: ", err)
+				log.Error().Msgf("Error handling request: %v", err)
 			}
 			return
 		}
@@ -82,6 +82,6 @@ func (srv *Server) handleClient(conn io.ReadWriteCloser) {
 
 func checkError(err error) {
 	if err != nil {
-		log.Fatal("Fatal error: ", err.Error())
+		log.Fatal().Msgf("Fatal error: %s", err.Error())
 	}
 }
