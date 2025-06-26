@@ -1,6 +1,7 @@
 package consistent_hashing
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,4 +22,12 @@ func TestResponserSendError(t *testing.T) {
 	assert.Equal(t, ch.GetNode("key_3"), "host-0", "they should be equal")
 	assert.Equal(t, ch.GetNode("key_4"), "host-2", "they should be equal")
 	assert.Equal(t, ch.GetNode("key_5"), "host-1", "they should be equal")
+}
+
+func BenchmarkConsistentHashing(b *testing.B) {
+	ch := NewConsistentHashing([]string{"host-0", "host-1", "host-2"}, 10)
+
+	for i := 0; i < b.N; i++ {
+		ch.GetNode(fmt.Sprintf("key_%d", i))
+	}
 }
