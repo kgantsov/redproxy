@@ -115,19 +115,26 @@ func TestServerSet(t *testing.T) {
 
 	var ctx = context.Background()
 
+	exists := client.Exists(ctx, "new_key")
+	assert.Equal(t, nil, exists.Err())
+	assert.Equal(t, int64(0), exists.Val())
+
 	val, err := client.Get(ctx, "new_key").Result()
 
-	assert.Equal(t, redis.Nil, err, "they should be equal")
-	assert.Equal(t, "", val, "they should be equal")
+	assert.Equal(t, redis.Nil, err)
+	assert.Equal(t, "", val)
 
 	err = client.Set(ctx, "new_key", "new value", time.Duration(0)).Err()
+	assert.Equal(t, nil, err)
 
-	assert.Equal(t, nil, err, "they should be equal")
+	exists = client.Exists(ctx, "new_key")
+	assert.Equal(t, nil, exists.Err())
+	assert.Equal(t, int64(1), exists.Val())
 
 	val, err = client.Get(ctx, "new_key").Result()
 
-	assert.Equal(t, nil, err, "they should be equal")
-	assert.Equal(t, "new value", val, "they should be equal")
+	assert.Equal(t, nil, err)
+	assert.Equal(t, "new value", val)
 
 	server.Stop()
 }
@@ -313,100 +320,45 @@ func TestServerKeys(t *testing.T) {
 	server.Stop()
 }
 
-// func TestServerMGet(t *testing.T) {
-// 	port := 46379
+func TestServerExpire(t *testing.T) {
+	port := 46379
 
-// 	redises := setupClients(3)
+	redises := setupClients(3)
 
-// 	_proxy := NewRedisProxy(redises)
-// 	server := NewServer(_proxy, port)
+	_proxy := NewRedisProxy(redises)
+	server := NewServer(_proxy, port)
 
-// 	go server.ListenAndServe()
+	go server.ListenAndServe()
 
-// 	client := redis.NewClient(&redis.Options{
-// 		Addr:     fmt.Sprintf("localhost:%d", port),
-// 		Password: "",
-// 		DB:       0,
-// 	})
+	client := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("localhost:%d", port),
+		Password: "",
+		DB:       0,
+	})
 
-// 	tests := []struct {
-// 		err  error
-// 		keys []string
-// 		want []interface{}
-// 	}{
-// 		{
-// 			keys: []string{"key_1", "key_2", "key_3", "do not exist", "key_4", "KJDK", "key_8"},
-// 			want: []interface{}{"value_1", "value_2", "value_3", "", "value_4", "", "value_8"},
-// 			err:  nil,
-// 		},
-// 	}
+	var ctx = context.Background()
 
-// 	// r := redises["localhost:6379"]
+	err := client.Set(ctx, "key_0", "value_0", time.Duration(0)).Err()
+	assert.Equal(t, nil, err)
 
-// 	for _, tc := range tests {
-// 		var ctx = context.Background()
-// 		// fmt.Printf("=====> )))) -----> %#v", r.MGet(ctx, tc.keys...).Val())
-// 		val, err := client.MGet(ctx, tc.keys...).Result()
-// 		// fmt.Printf("=====> )))) %s %+v", val, r.MGet(ctx, tc.keys...).Val())
+	ttl, err := client.TTL(ctx, "key_0").Result()
+	assert.Equal(t, nil, err)
+	assert.Equal(t, ttl.Seconds(), float64(0))
 
-// 		assert.Equal(t, tc.err, err, fmt.Sprintf("MGET %s error", tc.keys))
-// 		assert.Equal(t, tc.want, val, fmt.Sprintf("MGET %s", tc.keys))
-// 	}
+	// Set a TTL of 10 seconds using EXPIRE command
+	err = client.Expire(ctx, "key_0", time.Second*10).Err()
+	assert.Equal(t, nil, err)
 
-// 	server.Stop()
-// }
+	ttl, err = client.TTL(ctx, "key_0").Result()
+	assert.Equal(t, nil, err)
+	assert.Greater(t, ttl.Seconds(), float64(9))
 
-// func TestServerMSet(t *testing.T) {
-// 	port := 46379
+	err = client.Set(ctx, "key_1", "value_0", time.Second*10).Err()
+	assert.Equal(t, nil, err)
 
-// 	redises := setupClients(3)
+	ttl, err = client.TTL(ctx, "key_1").Result()
+	assert.Equal(t, nil, err)
+	assert.Greater(t, ttl.Seconds(), float64(9))
 
-// 	_proxy := NewRedisProxy(redises)
-// 	server := NewServer(_proxy, port)
-
-// 	go server.ListenAndServe()
-
-// 	client := redis.NewClient(&redis.Options{
-// 		Addr:     fmt.Sprintf("localhost:%d", port),
-// 		Password: "",
-// 		DB:       0,
-// 	})
-
-// 	tests := []struct {
-// 		err     error
-// 		keyVals []string
-// 		want    []interface{}
-// 	}{
-// 		{
-// 			keyVals: []string{"key1", "value1", "key2", "value2", "foo", "bar", "IOKL", "cxzcsd123"},
-// 			want:    []interface{}{"value1", "value2", "bar", "cxzcsd123"},
-// 			err:     nil,
-// 		},
-// 		{
-// 			keyVals: []string{"test_key", "this is the value"},
-// 			want:    []interface{}{"this is the value"},
-// 			err:     nil,
-// 		},
-// 	}
-
-// 	for _, tc := range tests {
-// 		var ctx = context.Background()
-
-// 		err := client.MSet(
-// 			ctx, tc.keyVals,
-// 		).Err()
-// 		assert.Equal(t, nil, err)
-
-// 		keys := []string{}
-// 		for i := 0; i < len(tc.keyVals); i += 2 {
-// 			keys = append(keys, tc.keyVals[i])
-// 		}
-
-// 		val, err := client.MGet(ctx, keys...).Result()
-
-// 		assert.Equal(t, tc.err, err, fmt.Sprintf("MGET %s error", keys))
-// 		assert.Equal(t, tc.want, val, fmt.Sprintf("MGET %s", keys))
-// 	}
-
-// 	server.Stop()
-// }
+	server.Stop()
+}

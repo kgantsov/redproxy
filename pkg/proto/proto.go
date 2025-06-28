@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -60,7 +61,27 @@ func (p *Proto) HandleRequest() error {
 			p.responser.SendStr(val)
 		}
 	case "SET":
-		err := p.redis.Set(ctx, cmd.Args[0], cmd.Args[1], time.Duration(0)).Err()
+		expiration := 0
+		multiplier := time.Second
+
+		if len(cmd.Args) == 4 {
+			if strings.ToUpper(cmd.Args[2]) == "PX" {
+				multiplier = time.Millisecond
+			} else if strings.ToUpper(cmd.Args[2]) != "EX" {
+				p.responser.SendError(fmt.Errorf("invalid option '%s' for SET command", cmd.Args[2]))
+				return nil
+			}
+
+			expiration, err = strconv.Atoi(cmd.Args[3])
+			if err != nil {
+				p.responser.SendError(err)
+				return nil
+			}
+
+			log.Info().Msgf("Setting expiration to %s %d seconds", cmd.Args[2], expiration)
+		}
+
+		err = p.redis.Set(ctx, cmd.Args[0], cmd.Args[1], time.Duration(expiration)*multiplier).Err()
 		if err != nil {
 			p.responser.SendStr("")
 		} else {
@@ -115,28 +136,29 @@ func (p *Proto) HandleRequest() error {
 
 		value := p.redis.DecrBy(ctx, cmd.Args[0], int64(decrBy)).Val()
 		p.responser.SendInt(value)
-	case "MGET":
-		values := p.redis.MGet(ctx, cmd.Args...).Val()
-
-		vals := []string{}
-		for _, val := range values {
-			vals = append(vals, val.(string))
-		}
-
-		p.responser.SendArr(vals)
-
-	case "MSET":
-		args := []interface{}{}
-		for _, arg := range cmd.Args {
-			args = append(args, arg)
-		}
-
-		err := p.redis.MSet(ctx, args...)
-
-		if err != nil {
-			p.responser.SendStr("")
+	case "EXISTS":
+		exists := p.redis.Exists(ctx, cmd.Args...).Val()
+		if exists > 0 {
+			p.responser.SendInt(exists)
 		} else {
-			p.responser.SendStr("OK")
+			p.responser.SendInt(0)
+		}
+	case "TTL":
+		ttl := p.redis.TTL(ctx, cmd.Args[0]).Val()
+		p.responser.SendInt(int64(ttl.Seconds()))
+	case "EXPIRE":
+		expiration, err := strconv.Atoi(cmd.Args[1])
+		if err != nil {
+			p.responser.SendError(err)
+			return nil
+		}
+
+		res := p.redis.Expire(ctx, cmd.Args[0], time.Duration(expiration)*time.Second)
+
+		if res.Val() {
+			p.responser.SendInt(1)
+		} else {
+			p.responser.SendInt(0)
 		}
 
 	case "PING":

@@ -14,12 +14,13 @@ type RedisClient interface {
 	Get(ctx context.Context, key string) *redis.StringCmd
 	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.StatusCmd
 	Del(ctx context.Context, keys ...string) *redis.IntCmd
+	Exists(ctx context.Context, keys ...string) *redis.IntCmd
+	Expire(ctx context.Context, key string, expiration time.Duration) *redis.BoolCmd
+	TTL(ctx context.Context, key string) *redis.DurationCmd
 	Append(ctx context.Context, key, value string) *redis.IntCmd
 	IncrBy(ctx context.Context, key string, value int64) *redis.IntCmd
 	DecrBy(ctx context.Context, key string, decrement int64) *redis.IntCmd
 	Keys(ctx context.Context, pattern string) *redis.StringSliceCmd
-	MGet(ctx context.Context, keys ...string) *redis.SliceCmd
-	MSet(ctx context.Context, values ...interface{}) *redis.StatusCmd
 	HGet(ctx context.Context, key, field string) *redis.StringCmd
 	HSet(ctx context.Context, key string, values ...interface{}) *redis.IntCmd
 }
@@ -98,6 +99,30 @@ func (c *RedisProxy) Del(ctx context.Context, keys ...string) *redis.IntCmd {
 	return cmd
 }
 
+func (c *RedisProxy) Exists(ctx context.Context, keys ...string) *redis.IntCmd {
+	res := int64(0)
+
+	keyClients := c.getNodes(keys...)
+
+	for _, key := range keys {
+		client := keyClients[key]
+		res += client.Exists(ctx, key).Val()
+	}
+
+	cmd := &redis.IntCmd{}
+	cmd.SetVal(res)
+
+	return cmd
+}
+
+func (c *RedisProxy) Expire(ctx context.Context, key string, expiration time.Duration) *redis.BoolCmd {
+	return c.getNode(key).Expire(ctx, key, expiration)
+}
+
+func (c *RedisProxy) TTL(ctx context.Context, key string) *redis.DurationCmd {
+	return c.getNode(key).TTL(ctx, key)
+}
+
 func (c *RedisProxy) Append(ctx context.Context, key, value string) *redis.IntCmd {
 	return c.getNode(key).Append(ctx, key, value)
 }
@@ -120,56 +145,6 @@ func (c *RedisProxy) Keys(ctx context.Context, pattern string) *redis.StringSlic
 
 	cmd := &redis.StringSliceCmd{}
 	cmd.SetVal(keys)
-
-	return cmd
-}
-
-func (c *RedisProxy) MGet(ctx context.Context, keys ...string) *redis.SliceCmd {
-	values := []interface{}{}
-
-	for _, key := range keys {
-		val := c.getNode(key).Get(ctx, key).Val()
-		values = append(values, val)
-	}
-
-	cmd := &redis.SliceCmd{}
-	cmd.SetVal(values)
-
-	return cmd
-}
-
-func (c *RedisProxy) MSet(ctx context.Context, values ...interface{}) *redis.StatusCmd {
-	keys := []string{}
-	keyVal := map[interface{}]interface{}{}
-
-	cmd := &redis.StatusCmd{}
-
-	for i := 0; i < len(values); i += 2 {
-		log.Info().Msgf("------> %+v", values[i])
-		key := values[i]
-		value := values[i+1]
-
-		keyVal[values[i]] = value
-
-		keys = append(keys, key.(string))
-	}
-
-	nodeKeys := c.getClientsForKeys(keys...)
-
-	for node, nKeys := range nodeKeys {
-		client := c.clients[node]
-
-		args := []interface{}{}
-
-		for _, key := range nKeys {
-			args = append(args, key, keyVal[key])
-		}
-
-		_, err := client.MSet(ctx, args...).Result()
-		if err != nil {
-			cmd.SetErr(err)
-		}
-	}
 
 	return cmd
 }
