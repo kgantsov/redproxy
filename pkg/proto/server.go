@@ -6,22 +6,42 @@ import (
 	"net"
 	"sync"
 
+	"github.com/ansrivas/fiberprometheus/v2"
+	"github.com/gofiber/fiber/v2"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/rs/zerolog/log"
 )
 
 type Server struct {
 	TCPListener *net.TCPListener
-	quit        chan interface{}
+	quit        chan any
 	redis       *RedisProxy
 	Port        int
 	wg          sync.WaitGroup
+
+	router  *fiber.App
+	Metrics *PrometheusMetrics
 }
 
 func NewServer(redis *RedisProxy, port int) *Server {
+	router := fiber.New()
+
+	registry := prometheus.NewRegistry()
+
+	prom := fiberprometheus.NewWithRegistry(
+		registry, "redproxy", "redproxy", "redproxy", map[string]string{},
+	)
+	prom.RegisterAt(router, "/metrics")
+	router.Use(prom.Middleware)
+	registry.Register(collectors.NewGoCollector())
+
 	server := &Server{
-		redis: redis,
-		Port:  port,
-		quit:  make(chan interface{}),
+		redis:   redis,
+		Port:    port,
+		quit:    make(chan interface{}),
+		Metrics: NewPrometheusMetrics(registry, "redproxy", "redproxy"),
+		router:  router,
 	}
 
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf(":%d", server.Port))
@@ -33,6 +53,13 @@ func NewServer(redis *RedisProxy, port int) *Server {
 }
 
 func (srv *Server) ListenAndServe() {
+	go func() {
+		err := srv.router.Listen(":9090")
+		if err != nil {
+			log.Error().Msgf("Fatal error: %s", err.Error())
+		}
+	}()
+
 	log.Info().Msgf("Listening on port: %d", srv.Port)
 	defer srv.wg.Done()
 
@@ -47,6 +74,7 @@ func (srv *Server) ListenAndServe() {
 				continue
 			}
 		}
+		srv.Metrics.Connections.With(prometheus.Labels{}).Inc()
 
 		srv.wg.Add(1)
 
@@ -64,7 +92,7 @@ func (srv *Server) Stop() {
 }
 
 func (srv *Server) handleClient(conn io.ReadWriteCloser) {
-	redisProto := NewProto(srv.redis, conn, conn)
+	redisProto := NewProto(srv.Metrics, srv.redis, conn, conn)
 	defer conn.Close()
 
 	for {
@@ -72,11 +100,13 @@ func (srv *Server) handleClient(conn io.ReadWriteCloser) {
 		if err != nil {
 			if err == io.EOF {
 				log.Debug().Msg("Client has been disconnected")
+				srv.Metrics.Connections.With(prometheus.Labels{}).Dec()
 			} else {
 				log.Error().Msgf("Error handling request: %v", err)
 			}
 			return
 		}
+		srv.Metrics.CommandsProxiedTotal.With(prometheus.Labels{}).Inc()
 	}
 }
 

@@ -9,21 +9,24 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
 )
 
 type Proto struct {
+	metrics   *PrometheusMetrics
 	parser    *Parser
 	responser *Responser
 	redis     *RedisProxy
 }
 
-func NewProto(redis *RedisProxy, reader io.Reader, writer io.Writer) *Proto {
+func NewProto(metrics *PrometheusMetrics, redis *RedisProxy, reader io.Reader, writer io.Writer) *Proto {
 	r := bufio.NewReader(reader)
 	parser := NewParser(r)
 	responser := NewResponser(writer)
 
 	p := &Proto{
+		metrics:   metrics,
 		parser:    parser,
 		responser: responser,
 		redis:     redis,
@@ -37,6 +40,11 @@ func (p *Proto) HandleRequest() error {
 
 	cmd, err := p.parser.ParseCommand()
 	log.Info().Msgf("GOT A COMMAND %+v", cmd)
+	start := time.Now()
+
+	defer func() {
+		p.metrics.Latency.With(prometheus.Labels{}).Observe(float64(time.Since(start).Nanoseconds()) / 1e9)
+	}()
 
 	if err != nil {
 		if err == io.EOF {
