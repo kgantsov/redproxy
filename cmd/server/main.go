@@ -39,8 +39,6 @@ func main() {
 		zerolog.SetGlobalLevel(logLevel)
 	}
 
-	flag.Parse()
-
 	redises := map[string]proto.RedisClient{}
 
 	for _, host := range hosts {
