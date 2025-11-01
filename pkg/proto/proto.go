@@ -168,7 +168,15 @@ func (p *Proto) HandleRequest() error {
 		} else {
 			p.responser.SendInt(0)
 		}
-
+	case "SADD":
+		value := p.redis.SAdd(ctx, cmd.Args[0], cmd.Args[1]).Val()
+		p.responser.SendInt(value)
+	case "SREM":
+		value := p.redis.SRem(ctx, cmd.Args[0], cmd.Args[1]).Val()
+		p.responser.SendInt(value)
+	case "SMEMBERS":
+		members := p.redis.SMembers(ctx, cmd.Args[0]).Val()
+		p.responser.SendArr(members)
 	case "PING":
 		p.responser.SendPong()
 	default:

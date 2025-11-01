@@ -23,6 +23,9 @@ type RedisClient interface {
 	Keys(ctx context.Context, pattern string) *redis.StringSliceCmd
 	HGet(ctx context.Context, key, field string) *redis.StringCmd
 	HSet(ctx context.Context, key string, values ...interface{}) *redis.IntCmd
+	SAdd(ctx context.Context, key string, members ...interface{}) *redis.IntCmd
+	SRem(ctx context.Context, key string, members ...interface{}) *redis.IntCmd
+	SMembers(ctx context.Context, key string) *redis.StringSliceCmd
 }
 
 type RedisProxy struct {
@@ -133,6 +136,18 @@ func (c *RedisProxy) IncrBy(ctx context.Context, key string, value int64) *redis
 
 func (c *RedisProxy) DecrBy(ctx context.Context, key string, decrement int64) *redis.IntCmd {
 	return c.getNode(key).DecrBy(ctx, key, decrement)
+}
+
+func (c *RedisProxy) SAdd(ctx context.Context, key string, members ...interface{}) *redis.IntCmd {
+	return c.getNode(key).SAdd(ctx, key, members...)
+}
+
+func (c *RedisProxy) SRem(ctx context.Context, key string, members ...interface{}) *redis.IntCmd {
+	return c.getNode(key).SRem(ctx, key, members...)
+}
+
+func (c *RedisProxy) SMembers(ctx context.Context, key string) *redis.StringSliceCmd {
+	return c.getNode(key).SMembers(ctx, key)
 }
 
 func (c *RedisProxy) Keys(ctx context.Context, pattern string) *redis.StringSliceCmd {
