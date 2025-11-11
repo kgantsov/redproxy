@@ -39,6 +39,10 @@ func (p *Proto) HandleRequest() error {
 	var ctx = context.Background()
 
 	cmd, err := p.parser.ParseCommand()
+	if err != nil {
+		log.Error().Msgf("Failed to parse command: %v", err)
+	}
+
 	log.Info().Msgf("GOT A COMMAND %+v", cmd)
 	start := time.Now()
 
