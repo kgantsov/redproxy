@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-redis/redis/v9"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
 )
@@ -67,7 +68,7 @@ func (p *Proto) HandleRequest() error {
 		p.responser.SendArr([]string{})
 	case "GET":
 		val, err := p.redis.Get(ctx, cmd.Args[0]).Result()
-		if err != nil {
+		if err != nil && err != redis.Nil {
 			log.Error().Err(err).Msgf("Failed to get value from Redis for key %s", cmd.Args[0])
 			p.responser.SendError(err)
 		} else {
@@ -103,7 +104,7 @@ func (p *Proto) HandleRequest() error {
 		}
 	case "HGET":
 		val, err := p.redis.HGet(ctx, cmd.Args[0], cmd.Args[1]).Result()
-		if err != nil {
+		if err != nil && err != redis.Nil {
 			log.Error().Err(err).Msgf(
 				"Failed to hget value from Redis for key %s %s", cmd.Args[0], cmd.Args[1],
 			)
