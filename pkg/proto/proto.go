@@ -39,7 +39,7 @@ func (p *Proto) HandleRequest() error {
 	var ctx = context.Background()
 
 	cmd, err := p.parser.ParseCommand()
-	if err != nil {
+	if err != nil && err != io.EOF {
 		log.Error().Msgf("Failed to parse command: %v", err)
 	}
 
@@ -68,7 +68,8 @@ func (p *Proto) HandleRequest() error {
 	case "GET":
 		val, err := p.redis.Get(ctx, cmd.Args[0]).Result()
 		if err != nil {
-			p.responser.SendNull()
+			log.Error().Err(err).Msgf("Failed to get value from Redis for key %s", cmd.Args[0])
+			p.responser.SendError(err)
 		} else {
 			p.responser.SendStr(val)
 		}
@@ -95,21 +96,28 @@ func (p *Proto) HandleRequest() error {
 
 		err = p.redis.Set(ctx, cmd.Args[0], cmd.Args[1], time.Duration(expiration)*multiplier).Err()
 		if err != nil {
-			p.responser.SendStr("")
+			log.Error().Err(err).Msgf("Failed to set value in Redis for key %s", cmd.Args[0])
+			p.responser.SendError(err)
 		} else {
 			p.responser.SendStr("OK")
 		}
 	case "HGET":
 		val, err := p.redis.HGet(ctx, cmd.Args[0], cmd.Args[1]).Result()
 		if err != nil {
-			p.responser.SendNull()
+			log.Error().Err(err).Msgf(
+				"Failed to hget value from Redis for key %s %s", cmd.Args[0], cmd.Args[1],
+			)
+			p.responser.SendError(err)
 		} else {
 			p.responser.SendStr(val)
 		}
 	case "HSET":
 		err := p.redis.HSet(ctx, cmd.Args[0], cmd.Args[1], cmd.Args[2]).Err()
 		if err != nil {
-			p.responser.SendStr("")
+			log.Error().Err(err).Msgf(
+				"Failed to hset value in Redis for key %s %s", cmd.Args[0], cmd.Args[1],
+			)
+			p.responser.SendError(err)
 		} else {
 			p.responser.SendStr("OK")
 		}
