@@ -68,9 +68,13 @@ func (p *Proto) HandleRequest() error {
 		p.responser.SendArr([]string{})
 	case "GET":
 		val, err := p.redis.Get(ctx, cmd.Args[0]).Result()
-		if err != nil && err != redis.Nil {
-			log.Error().Err(err).Msgf("Failed to get value from Redis for key %s", cmd.Args[0])
-			p.responser.SendError(err)
+		if err != nil {
+			if err == redis.Nil {
+				p.responser.SendNull()
+			} else {
+				log.Error().Err(err).Msgf("Failed to get value from Redis for key %s", cmd.Args[0])
+				p.responser.SendError(err)
+			}
 		} else {
 			p.responser.SendStr(val)
 		}
@@ -104,11 +108,15 @@ func (p *Proto) HandleRequest() error {
 		}
 	case "HGET":
 		val, err := p.redis.HGet(ctx, cmd.Args[0], cmd.Args[1]).Result()
-		if err != nil && err != redis.Nil {
-			log.Error().Err(err).Msgf(
-				"Failed to hget value from Redis for key %s %s", cmd.Args[0], cmd.Args[1],
-			)
-			p.responser.SendError(err)
+		if err != nil {
+			if err == redis.Nil {
+				p.responser.SendNull()
+			} else {
+				log.Error().Err(err).Msgf(
+					"Failed to hget value from Redis for key %s %s", cmd.Args[0], cmd.Args[1],
+				)
+				p.responser.SendError(err)
+			}
 		} else {
 			p.responser.SendStr(val)
 		}
